@@ -1056,5 +1056,122 @@ Response 1: Creating ALL 10 subagents simultaneously:
 - 100个任务 (10批次)：50分钟 → 10分钟（**节省40分钟**）
 
 ---
+
+### 2025-10-07 (补充11) - 修正 Decomposer 调用逻辑（批处理而非并行）
+
+#### 问题
+步骤3中的 FrontendDecomposer 和 BackendDecomposer 的调用方式不合理：
+- 原设计：为批次中**每个任务**创建一个 decomposer subagent
+- 问题：decomposer 本身不需要并行，它应该一次性处理整个批次
+- 结果：创建多个 decomposer 处理相同类型的任务，效率低且结果可能不一致
+
+#### 解决方案
+修改为**单个 Decomposer 处理整个批次**：
+- 只创建 **ONE** decomposer subagent
+- Decomposer 接收批次中的**所有任务**作为输入
+- Decomposer 分析所有任务并**一次性返回**完整的拆解结果
+- 主 agent 接收结果后保存到 task_registry.json
+- 然后再对拆解出的 level-3 任务进行**并行 context 生成**
+
+#### 修改细节
+
+**修改前（错误）**：
+```markdown
+### 3. Invoke FrontendDecomposer Subagent
+Create a FrontendDecomposer subagent for frontend_task_XXX.
+```
+→ 暗示为每个任务创建一个 decomposer
+
+**修改后（正确）**：
+```markdown
+### 3. Invoke FrontendDecomposer Subagent (Single Call for Entire Batch)
+
+**Important**: Create ONE FrontendDecomposer subagent to process ALL tasks 
+in the current batch.
+
+<subagent_task>
+Agent: @frontend-decomposer
+Input:
+- Batch tasks: [list of all task IDs in current batch]
+- Task details: [for each task: ID, type, title, wireframe reference]
+...
+
+Output format: JSON object with decomposition for ALL batch tasks
+{
+  "frontend_task_001": { "decomposed": true, "subtasks": [...] },
+  "frontend_task_002": { "decomposed": true, "subtasks": [...] },
+  ...
+}
+</subagent_task>
+```
+
+#### 正确的工作流程
+
+**步骤3：Decomposer（单个，批处理）**
+```
+批次任务: [task_001, task_002, task_003, task_004, task_005]
+         ↓
+   ONE FrontendDecomposer
+         ↓
+返回: {
+  task_001: {subtasks: [...]},
+  task_002: {subtasks: [...]},
+  ...
+}
+```
+
+**步骤5：ContextGenerator（并行，分sub-batch）**
+```
+拆解出的 level-3 任务: 25个组件
+         ↓
+Sub-batch 1: 10 ContextGenerators (parallel)
+Sub-batch 2: 10 ContextGenerators (parallel)
+Sub-batch 3: 5 ContextGenerators (parallel)
+         ↓
+生成25个 context 文件
+```
+
+#### 优势
+- ✅ **Decomposer 效率更高**：一次性处理所有任务，可以识别任务间的关系
+- ✅ **结果一致性**：单个 decomposer 保证命名和结构的一致性
+- ✅ **避免重复工作**：不会多个 decomposer 重复读取相同的 wireframe 文件
+- ✅ **清晰的职责划分**：
+  - Decomposer：任务拆解（批处理，单个）
+  - ContextGenerator：上下文生成（并行，多个）
+- ✅ **减少 subagent 数量**：5个任务 → 1个 decomposer + 25个 context generators
+
+#### 影响文件
+- **`continue-decompose-frontend.md`** - 步骤3完全重写
+- **`continue-decompose-backend.md`** - 步骤3完全重写
+
+#### 示例对比
+
+**Frontend 批次（5个任务 → 25个组件）**:
+
+修改前:
+```
+5个 FrontendDecomposer + 25个 ContextGenerator = 30个 subagents
+```
+
+修改后:
+```
+1个 FrontendDecomposer + 25个 ContextGenerator = 26个 subagents
+节省 4个 subagent 调用
+```
+
+**Backend 批次（8个服务 → 32个函数）**:
+
+修改前:
+```
+8个 BackendDecomposer + 32个 ContextGenerator = 40个 subagents
+```
+
+修改后:
+```
+1个 BackendDecomposer + 32个 ContextGenerator = 33个 subagents
+节省 7个 subagent 调用
+```
+
+---
 **最后更新**: 2025-10-07  
 **状态**: ✅ 系统就绪

@@ -48,66 +48,113 @@ Get next 5-10 pending backend tasks.
 - **For each new function task, invoke ContextGenerator** (see step 5)
 - **DO NOT skip decomposition** - every service must create function tasks
 
-### 3. Invoke BackendDecomposer Subagent
-```
-Create a BackendDecomposer subagent for backend_task_XXX.
+### 3. Invoke BackendDecomposer Subagent (Single Call for Entire Batch)
 
+**Important**: Create ONE BackendDecomposer subagent to process ALL tasks in the current batch.
+The decomposer will analyze all tasks and return a complete decomposition result.
+
+```
 <subagent_task>
 Agent: @backend-decomposer
 Input:
-- Task ID: backend_task_XXX
-- Task type: [module/service]
-- API endpoints: from task metadata
-- Database tables: from task metadata
+- Batch tasks: [list of all task IDs in current batch]
+- Task details: [for each task: ID, type, title, endpoints, database tables]
 - Architecture: docs/fullstack-architecture.md
 - Frontend API calls: from frontend task registry
+- PRD reference: docs/prd.md
 
-Task (if module):
-1. Group related endpoints into services
+Task:
+For each task in the batch:
+
+**If task.type == "module":**
+1. Group related endpoints into services/controllers
 2. Identify shared utilities
 3. Create service-level tasks
 
-Task (if service):
-1. List all API endpoints for this service
+**If task.type == "service":**
+1. List ALL API endpoints for this service
 2. For each endpoint, identify:
-   - Route handler function
-   - Request validation
-   - Business logic functions
-   - Data access functions
+   - Route handler function (API layer)
+   - Request validation function
+   - Business logic functions (Service layer)
+   - Data access functions (Repository layer)
    - Response formatting
-3. Identify database operations:
+3. Identify ALL database operations:
    - CRUD functions
    - Complex queries
    - Transactions
-4. Identify middleware/decorators needed:
+4. Identify middleware/decorators:
    - Authentication
    - Authorization
    - Rate limiting
    - Error handling
+5. A "simple" service MUST have minimum 5-10 functions
 
-Output format: JSON array of function-level tasks
-[
-  {
-    "id": "backend_task_XXX",
-    "title": "login_user",
-    "level": 3,
-    "type": "function",
-    "function_type": "endpoint|service|repository|validator|util",
-    "http_method": "POST",
-    "route": "/api/auth/login",
-    "function_signature": "async def login_user(credentials: LoginRequest) -> LoginResponse",
-    "input_params": {
-      "email": "string",
-      "password": "string"
-    },
-    "return_type": "LoginResponse",
-    "database_operations": ["SELECT from users", "INSERT into sessions"],
-    "dependencies": ["validate_email", "hash_password", "generate_jwt"],
-    "error_cases": ["InvalidCredentials", "AccountLocked"]
+**If task.type == "function":**
+- Mark as "ready" (no decomposition needed)
+
+Output format: JSON object with decomposition for ALL batch tasks
+{
+  "backend_task_001": {
+    "original_task": {...},
+    "decomposed": true,
+    "subtasks": [
+      {
+        "id": "backend_task_010",
+        "title": "AuthenticationService",
+        "level": 2,
+        "type": "service",
+        "parent_id": "backend_task_001",
+        "endpoints": ["/api/auth/login", "/api/auth/logout"]
+      },
+      ...
+    ]
+  },
+  "backend_task_002": {
+    "original_task": {...},
+    "decomposed": true,
+    "subtasks": [
+      {
+        "id": "backend_task_015",
+        "title": "login_user",
+        "level": 3,
+        "type": "function",
+        "function_type": "endpoint",
+        "parent_id": "backend_task_002",
+        "http_method": "POST",
+        "route": "/api/auth/login",
+        "function_signature": "async def login_user(credentials: LoginRequest) -> LoginResponse",
+        "input_params": {
+          "email": "string",
+          "password": "string"
+        },
+        "return_type": "LoginResponse",
+        "database_operations": ["SELECT from users", "INSERT into sessions"],
+        "dependencies": ["validate_email", "hash_password", "generate_jwt"],
+        "error_cases": ["InvalidCredentials", "AccountLocked"]
+      },
+      {
+        "id": "backend_task_016",
+        "title": "validate_credentials",
+        "level": 3,
+        "type": "function",
+        "function_type": "validator",
+        "parent_id": "backend_task_002",
+        ...
+      },
+      ...
+    ]
+  },
+  "backend_task_003": {
+    "original_task": {...},
+    "decomposed": false,
+    "reason": "Already at function level"
   }
-]
+}
 </subagent_task>
 ```
+
+**Wait for decomposer to complete and return results for ALL batch tasks.**
 
 ### 4. Save Decomposed Tasks to Registry
 For each task decomposed by the BackendDecomposer:
@@ -193,19 +240,28 @@ Processing sub-batch 1 of 4 (10 functions)...
   ✓ Sub-batch 1 complete: 10/10 contexts generated
 
 Processing sub-batch 2 of 4 (10 functions)...
-  Creating 10 ContextGenerator subagents in parallel:
-  - backend_task_020 (createSession)
-  - backend_task_021 (updateLastLogin)
-  ... (10 total)
+  Creating ALL 10 ContextGenerator subagents SIMULTANEOUSLY:
+  
+  <subagent_task>Agent: @context-generator (backend_task_020 - createSession)</subagent_task>
+  <subagent_task>Agent: @context-generator (backend_task_021 - updateLastLogin)</subagent_task>
+  ... [ALL 10 subagent blocks in ONE response]
+  
   ✓ Sub-batch 2 complete: 10/10 contexts generated
 
 Processing sub-batch 3 of 4 (10 functions)...
+  Creating ALL 10 ContextGenerator subagents SIMULTANEOUSLY:
+  
+  <subagent_task>Agent: @context-generator (backend_task_030)</subagent_task>
+  ... [ALL 10 subagent blocks in ONE response]
+  
   ✓ Sub-batch 3 complete: 10/10 contexts generated
 
 Processing sub-batch 4 of 4 (2 functions)...
-  Creating 2 ContextGenerator subagents in parallel:
-  - backend_task_040 (logLoginAttempt)
-  - backend_task_041 (cleanupExpiredSessions)
+  Creating ALL 2 ContextGenerator subagents SIMULTANEOUSLY:
+  
+  <subagent_task>Agent: @context-generator (backend_task_040 - logLoginAttempt)</subagent_task>
+  <subagent_task>Agent: @context-generator (backend_task_041 - cleanupExpiredSessions)</subagent_task>
+  
   ✓ Sub-batch 4 complete: 2/2 contexts generated
 
 ✓ ALL batches complete: 32/32 contexts generated (100% coverage)

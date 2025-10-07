@@ -52,28 +52,33 @@ For each task in batch:
 - **For each new component task, invoke ContextGenerator** (see step 5)
 - **DO NOT skip decomposition** - every page must create component tasks
 
-### 3. Invoke FrontendDecomposer Subagent
-```
-Create a FrontendDecomposer subagent for frontend_task_XXX.
+### 3. Invoke FrontendDecomposer Subagent (Single Call for Entire Batch)
 
+**Important**: Create ONE FrontendDecomposer subagent to process ALL tasks in the current batch.
+The decomposer will analyze all tasks and return a complete decomposition result.
+
+```
 <subagent_task>
 Agent: @frontend-decomposer
 Input:
-- Task ID: frontend_task_XXX
-- Task type: [module/page]
-- Design references: [list of wireframe files]
+- Batch tasks: [list of all task IDs in current batch]
+- Task details: [for each task: ID, type, title, wireframe reference]
+- Design references: [all relevant wireframe files]
 - Frontend spec: docs/front-end-spec.md
 
-Task (if module):
+Task:
+For each task in the batch:
+
+**If task.type == "module":**
 1. List all pages in this module
 2. Group related pages
 3. Identify shared components across pages
 4. Create page-level tasks
 
-Task (if page):
+**If task.type == "page":**
 1. Read corresponding wireframe file
-2. Identify all UI components in layout
-3. Classify components:
+2. Identify ALL UI components in layout (no matter how small)
+3. Classify each component:
    - Container/Layout components
    - Presentational components
    - Form components
@@ -81,26 +86,59 @@ Task (if page):
    - Data display components (tables, cards)
 4. Identify state management needs
 5. Identify API integration points
-6. Create component-level tasks with hierarchy
+6. Create component-level tasks with full hierarchy
+7. A "simple" page MUST have minimum 5-10 components
 
-Output format: JSON array of subtasks
-[
-  {
-    "id": "frontend_task_XXX",
-    "title": "ComponentName",
-    "level": 3,
-    "type": "component",
-    "component_type": "container|presentational|form|etc",
-    "parent_id": "parent_task",
-    "props": ["prop1", "prop2"],
-    "state": ["state1", "state2"],
-    "hooks": ["useState", "useEffect"],
-    "api_calls": ["GET /api/users"],
-    "design_reference": "designs/wireframes/page.md"
+**If task.type == "component":**
+- Mark as "ready" (no decomposition needed)
+
+Output format: JSON object with decomposition for ALL batch tasks
+{
+  "frontend_task_001": {
+    "original_task": {...},
+    "decomposed": true,
+    "subtasks": [
+      {
+        "id": "frontend_task_005",
+        "title": "LoginPage",
+        "level": 2,
+        "type": "page",
+        "parent_id": "frontend_task_001",
+        "design_reference": "designs/wireframes/login-page.md"
+      },
+      ...
+    ]
+  },
+  "frontend_task_002": {
+    "original_task": {...},
+    "decomposed": true,
+    "subtasks": [
+      {
+        "id": "frontend_task_008",
+        "title": "LoginForm",
+        "level": 3,
+        "type": "component",
+        "component_type": "form",
+        "parent_id": "frontend_task_002",
+        "props": ["onSubmit", "initialValues"],
+        "state": ["email", "password", "isLoading", "error"],
+        "hooks": ["useState", "useEffect"],
+        "api_calls": ["POST /api/auth/login"],
+        "design_reference": "designs/wireframes/login-page.md"
+      },
+      ...
+    ]
+  },
+  "frontend_task_003": {
+    "original_task": {...},
+    "decomposed": false,
+    "reason": "Already at component level"
   }
-]
+}
 </subagent_task>
 ```
+
+**Wait for decomposer to complete and return results for ALL batch tasks.**
 
 ### 4. Save Decomposed Tasks to Registry
 For each task decomposed by the FrontendDecomposer:
@@ -185,16 +223,20 @@ Processing sub-batch 1 of 3 (10 components)...
   ✓ Sub-batch 1 complete: 10/10 contexts generated
 
 Processing sub-batch 2 of 3 (10 components)...
-  Creating 10 ContextGenerator subagents in parallel:
-  - frontend_task_018 (DashboardHeader)
-  - frontend_task_019 (StatsCard)
-  ... (10 total)
+  Creating ALL 10 ContextGenerator subagents SIMULTANEOUSLY:
+  
+  <subagent_task>Agent: @context-generator (frontend_task_018 - DashboardHeader)</subagent_task>
+  <subagent_task>Agent: @context-generator (frontend_task_019 - StatsCard)</subagent_task>
+  ... [ALL 10 subagent blocks in ONE response]
+  
   ✓ Sub-batch 2 complete: 10/10 contexts generated
 
 Processing sub-batch 3 of 3 (5 components)...
-  Creating 5 ContextGenerator subagents in parallel:
-  - frontend_task_028 (SettingsForm)
-  ... (5 total)
+  Creating ALL 5 ContextGenerator subagents SIMULTANEOUSLY:
+  
+  <subagent_task>Agent: @context-generator (frontend_task_028 - SettingsForm)</subagent_task>
+  ... [ALL 5 subagent blocks in ONE response]
+  
   ✓ Sub-batch 3 complete: 5/5 contexts generated
 
 ✓ ALL batches complete: 25/25 contexts generated (100% coverage)
