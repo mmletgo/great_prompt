@@ -10,7 +10,7 @@ Continue decomposing frontend tasks to component level (React/Vue/Angular compon
 
 ## Prerequisites
 - `decomposition_phase.status == "in_progress"`
-- `decomposition_phase.focus == "frontend"`
+- `decomposition_phase.frontend_status == "in_progress"`
 
 ## Steps
 

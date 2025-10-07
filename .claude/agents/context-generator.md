@@ -16,16 +16,18 @@ You will receive:
 ## Output Format
 Create a markdown file at `.claude_tasks/contexts/task_XXX_context.md`:
 
+### For Backend Function Tasks:
+
 ```markdown
 # Task XXX: [Task Title]
 
 ## Task Overview
 [2-3 sentences describing what this task accomplishes]
 
-## Parent Task
-- ID: task_YYY
-- Title: [Parent title]
-- Context: [How this relates to parent]
+## Task Category
+- Type: Backend Function
+- Layer: [API/Service/Repository/Validation/Utility]
+- Parent: task_YYY ([Parent title])
 
 ## Dependencies
 [List tasks this depends on]
@@ -119,6 +121,89 @@ def test_error_handling():
 3. **Clear requirements**: Explicit about expected behavior
 4. **Dependencies**: List what code from other tasks is needed
 5. **Implementation hints**: Provide algorithm suggestions if complex
+
+### For Frontend Component Tasks:
+
+```markdown
+# Task XXX: [Component Name]
+
+## Component Overview
+[2-3 sentences describing component purpose]
+
+## Task Category
+- Type: Frontend Component
+- Component Type: [Container/Presentational/Form/Interactive]
+- Parent Page: task_YYY ([Page name])
+- Wireframe: designs/wireframes/[page-name].md
+
+## Component Specification
+
+### Props
+```typescript
+interface ComponentProps {
+  prop1: type;  // description
+  prop2: type;  // description
+}
+```
+
+### State
+- state1: type - description
+- state2: type - description
+
+### Events/Callbacks
+- onClick: () => void - description
+- onChange: (value: type) => void - description
+
+### API Calls
+- POST /api/endpoint - description
+- GET /api/resource/:id - description
+
+## UI States
+- Default: description
+- Loading: description
+- Error: description
+- Success: description
+
+## TDD Test Cases
+
+### Test Case 1: Rendering
+```typescript
+test('renders component correctly', () => {
+  render(<ComponentName {...props} />)
+  expect(screen.getByText('...')).toBeInTheDocument()
+})
+```
+
+### Test Case 2: User Interaction
+```typescript
+test('handles user interaction', () => {
+  const handleClick = jest.fn()
+  render(<ComponentName onClick={handleClick} />)
+  fireEvent.click(screen.getByRole('button'))
+  expect(handleClick).toHaveBeenCalled()
+})
+```
+
+### Test Case 3: API Integration
+```typescript
+test('handles API call', async () => {
+  // Mock API
+  // Test loading state
+  // Test success state
+  // Test error state
+})
+```
+
+## Accessibility
+- ARIA labels: [list]
+- Keyboard navigation: [description]
+- Screen reader support: [description]
+
+## Related Files
+- Component: src/components/[path]/ComponentName.tsx
+- Test: src/components/[path]/ComponentName.test.tsx
+- Storybook: src/components/[path]/ComponentName.stories.tsx
+```
 
 ## Guidelines for Higher-Level Tasks
 1. **Overview**: Clear purpose and scope

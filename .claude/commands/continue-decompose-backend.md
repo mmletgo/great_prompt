@@ -8,6 +8,10 @@ argument-hint: [batch_size]
 ## Your Task
 Continue decomposing backend tasks to function/endpoint level.
 
+## Prerequisites
+- `decomposition_phase.status == "in_progress"`
+- `decomposition_phase.backend_status == "in_progress"`
+
 ## Steps
 
 ### 1. Load State and Get Next Batch

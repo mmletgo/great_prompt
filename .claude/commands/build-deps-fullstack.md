@@ -9,8 +9,10 @@ Analyze all frontend and backend tasks and build a comprehensive dependency grap
 
 ## Prerequisites
 Check that both frontend and backend decomposition are complete:
-- All frontend tasks at component level
-- All backend tasks at function level
+- `decomposition_phase.frontend_status == "completed"`
+- `decomposition_phase.backend_status == "completed"`
+- All frontend tasks are at component level (type == "component")
+- All backend tasks are at function level (type == "function")
 
 ## Steps
 

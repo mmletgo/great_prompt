@@ -9,9 +9,10 @@ Read project documentation and generate comprehensive user flow diagrams.
 
 ## Prerequisites
 Check that the following files exist:
-- `docs/prd.md` - Product Requirements Document
-- `docs/fullstack-architecture.md` - Technical architecture design
-- `docs/front-end-spec.md` - UX initial design
+- `docs/prd.md` - Product Requirements Document (必需)
+- `docs/fullstack-architecture.md` - Technical architecture design (可选)
+- `docs/front-end-spec.md` - UX design specifications (可选)
+- `docs/back-end-spec.md` - Backend technical specifications (可选)
 
 ## Steps
 
@@ -72,14 +73,19 @@ Create `.claude_tasks/state.json`:
   "design_phase": {
     "status": "user_flows_completed",
     "user_flows_file": "designs/user-flows.md",
-    "wireframes_generated": false
+    "wireframes_generated": false,
+    "wireframes_count": 0
   },
   "decomposition_phase": {
     "status": "not_started",
+    "frontend_status": "not_started",
+    "backend_status": "not_started",
     "last_checkpoint": null
   },
   "development_phase": {
-    "status": "not_started"
+    "status": "not_started",
+    "completed_tasks": 0,
+    "failed_tasks": 0
   },
   "metadata": {
     "created_at": "[CURRENT_TIMESTAMP]",

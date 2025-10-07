@@ -12,12 +12,12 @@ Initialize frontend task decomposition based on completed design artifacts.
 Check that design phase is complete:
 - `designs/user-flows.md` exists
 - `designs/wireframes/` directory has wireframe files
-- `design_phase.status == "wireframes_completed"`
+- `design_phase.status == "completed"`
 
 Also check input documents:
-- `docs/prd.md`
-- `docs/fullstack-architecture.md`
-- `docs/front-end-spec.md`
+- `docs/prd.md` (必需)
+- `docs/fullstack-architecture.md` (可选)
+- `docs/front-end-spec.md` (可选)
 
 ## Steps
 
@@ -80,14 +80,24 @@ Update `.claude_tasks/state.json`:
   },
   "decomposition_phase": {
     "status": "in_progress",
-    "focus": "frontend",
+    "frontend_status": "in_progress",
+    "backend_status": "not_started",
     "current_level": 1,
     "last_checkpoint": "frontend_task_XXX",
     "progress": {
-      "total_tasks": 0,
-      "decomposed_tasks": 0,
-      "component_level_tasks": 0
+      "frontend": {
+        "total_modules": 0,
+        "total_pages": 0,
+        "total_components": 0
+      },
+      "backend": {
+        "total_modules": 0,
+        "total_functions": 0
+      }
     }
+  },
+  "development_phase": {
+    "status": "not_started"
   }
 }
 ```

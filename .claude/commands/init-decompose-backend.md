@@ -9,8 +9,9 @@ argument-hint: [batch_size]
 Initialize backend API and service task decomposition based on PRD and architecture.
 
 ## Prerequisites
-Check that frontend decomposition is complete (optional but recommended):
-- `decomposition_phase.frontend_status == "completed"`
+Check that frontend decomposition is complete (recommended but optional):
+- `decomposition_phase.frontend_status == "completed"` (if frontend already decomposed)
+- OR skip if doing backend-first development
 
 Check input documents:
 - `docs/prd.md`

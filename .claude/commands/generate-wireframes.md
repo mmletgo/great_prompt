@@ -10,7 +10,7 @@ Generate detailed low-fidelity wireframes for each page/screen identified in the
 ## Prerequisites
 Check that the following files exist:
 - `designs/user-flows.md` - User flow diagrams
-- `docs/front-end-spec.md` - UX design specifications
+- `docs/front-end-spec.md` - UX design specifications (if available)
 
 Check state:
 - `design_phase.status` should be "user_flows_completed"
@@ -199,11 +199,15 @@ When all wireframes complete and pass validation:
 ```json
 {
   "design_phase": {
-    "status": "wireframes_completed",
+    "status": "completed",
+    "wireframes_generated": true,
     "wireframes_count": [N],
     "wireframes_directory": "designs/wireframes/",
     "validation_status": "passed",
     "validation_report": "designs/wireframes/VALIDATION_REPORT.md"
+  },
+  "decomposition_phase": {
+    "status": "not_started"
   }
 }
 ```
@@ -275,7 +279,7 @@ Generated files:
 - designs/wireframes/INDEX.md
 - designs/wireframes/VALIDATION_REPORT.md
 
-Design phase: wireframes_completed
+Design phase: completed (status changed from user_flows_completed to completed)
 
 Next command: /init-decompose-frontend
 ```
