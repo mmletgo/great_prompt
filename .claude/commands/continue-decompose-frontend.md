@@ -134,7 +134,7 @@ Task (if page):
 5. Identify API integration points
 6. Create component-level tasks with hierarchy
 
-Output format: Save to `.claude_tasks/decomposition_temp/frontend_task_XXX.json`
+Output format: Save to `.claude_tasks/frontend_decomposition_temp/frontend_task_XXX.json`
 
 **CRITICAL - Save to temporary file, do NOT return large JSON**:
 ```json
@@ -176,14 +176,14 @@ Output format: Save to `.claude_tasks/decomposition_temp/frontend_task_XXX.json`
 - ✓ All decomposers created simultaneously in one response
 
 Each decomposer saves its results to:
-- `.claude_tasks/decomposition_temp/frontend_task_XXX.json`
+- `.claude_tasks/frontend_decomposition_temp/frontend_task_XXX.json`
 
 ### 5. Integrate All Decomposition Results
 
 After all decomposers complete:
 
 #### 5.1 Read All Temporary Files
-Read all files from `.claude_tasks/decomposition_temp/frontend_task_*.json`
+Read all files from `.claude_tasks/frontend_decomposition_temp/frontend_task_*.json`
 
 #### 5.2 Assign Task IDs
 For each subtask across all decomposition files:
@@ -241,7 +241,7 @@ Example merged result:
 
 #### 5.4 Clean Up Temporary Files
 After successful merge:
-- Delete all `.claude_tasks/decomposition_temp/frontend_task_*.json` files
+- Delete all `.claude_tasks/frontend_decomposition_temp/frontend_task_*.json` files
 
 ### 6. Invoke Context Generator for Component Tasks (Parallel)
 
@@ -439,7 +439,7 @@ frontend_task_001 (Module: Authentication):
   
 frontend_task_002 (Page: Login):
   ✓ Analyzed wireframe: designs/wireframes/login-page.md
-  ✓ Saved to: .claude_tasks/decomposition_temp/frontend_task_002.json
+  ✓ Saved to: .claude_tasks/frontend_decomposition_temp/frontend_task_002.json
   ✓ Identified 8 components
 
 === Integration Phase (Python Script) ===

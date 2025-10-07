@@ -130,7 +130,7 @@ Task (if service):
    - Rate limiting
    - Error handling
 
-Output format: Save to `.claude_tasks/decomposition_temp/backend_task_XXX.json`
+Output format: Save to `.claude_tasks/backend_decomposition_temp/backend_task_XXX.json`
 
 **CRITICAL - Save to temporary file, do NOT return large JSON**:
 ```json
@@ -185,14 +185,14 @@ Output format: Save to `.claude_tasks/decomposition_temp/backend_task_XXX.json`
 - ✓ All decomposers created simultaneously in one response
 
 Each decomposer saves its results to:
-- `.claude_tasks/decomposition_temp/backend_task_XXX.json`
+- `.claude_tasks/backend_decomposition_temp/backend_task_XXX.json`
 
 ### 5. Integrate All Decomposition Results
 
 After all decomposers complete:
 
 #### 5.1 Read All Temporary Files
-Read all files from `.claude_tasks/decomposition_temp/backend_task_*.json`
+Read all files from `.claude_tasks/backend_decomposition_temp/backend_task_*.json`
 
 #### 5.2 Assign Task IDs
 For each subtask across all decomposition files:
@@ -264,7 +264,7 @@ Example merged result:
 
 #### 5.4 Clean Up Temporary Files
 After successful merge:
-- Delete all `.claude_tasks/decomposition_temp/backend_task_*.json` files
+- Delete all `.claude_tasks/backend_decomposition_temp/backend_task_*.json` files
 
 ### 6. Invoke Context Generator for Function Tasks (Parallel)
 
@@ -477,7 +477,7 @@ Creating 3 BackendDecomposer subagents in parallel...
 
 backend_task_001 (Service: AuthenticationService):
   ✓ Analyzed requirements from architecture doc
-  ✓ Saved to: .claude_tasks/decomposition_temp/backend_task_001.json
+  ✓ Saved to: .claude_tasks/backend_decomposition_temp/backend_task_001.json
   ✓ Identified 12 functions (3 endpoints, 5 services, 2 repositories, 1 validator, 1 util)
 
 === Integration Phase (Python Script) ===
