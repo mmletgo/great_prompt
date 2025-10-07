@@ -149,7 +149,7 @@ Verify each wireframe includes:
 - [ ] INDEX.md exists and is properly formatted
 
 #### 5.5 Generate Validation Report
-Create `designs/wireframes/VALIDATION_REPORT.md`:
+Create `designs/WIREFRAME_VALIDATION.md`:
 ```markdown
 # Wireframes Validation Report
 
@@ -204,7 +204,7 @@ When all wireframes complete and pass validation:
     "wireframes_count": [N],
     "wireframes_directory": "designs/wireframes/",
     "validation_status": "passed",
-    "validation_report": "designs/wireframes/VALIDATION_REPORT.md"
+    "validation_report": "designs/WIREFRAME_VALIDATION.md"
   },
   "decomposition_phase": {
     "status": "not_started"
@@ -213,34 +213,33 @@ When all wireframes complete and pass validation:
 ```
 
 ### 6. Generate Wireframes Index
-Create `designs/wireframes/INDEX.md`:
-```markdown
-### 6. Generate Wireframes Index
-Create `designs/wireframes/INDEX.md`:
+Create `designs/WIREFRAMES_INDEX.md`:
 ```markdown
 # Wireframes Index
 
 ## All Pages ([N] total)
 
 ### Authentication
-- [Login](./login-page.md)
-- [Signup](./signup-page.md)
+- [Login](./wireframes/login-page.md)
+- [Signup](./wireframes/signup-page.md)
 
 ### Dashboard
-- [Main Dashboard](./dashboard.md)
+- [Main Dashboard](./wireframes/dashboard.md)
 
 ### [Category]
-- [Page Name](./page-name.md)
+- [Page Name](./wireframes/page-name.md)
 
 ## Design System Reference
 See: docs/front-end-spec.md
 
 ## User Flows Reference
-See: ../user-flows.md
+See: user-flows.md
+
+## Validation Report
+See: WIREFRAME_VALIDATION.md
 ```
 
 ### 7. Output Summary
-```
 
 ### 7. Output Summary
 Print:
@@ -275,9 +274,9 @@ Issues found: [X]
 Validation status: [PASSED / NEEDS REVIEW]
 
 Generated files:
-- designs/wireframes/ ([N] wireframe files)
-- designs/wireframes/INDEX.md
-- designs/wireframes/VALIDATION_REPORT.md
+- designs/wireframes/ ([N] wireframe files - only .md files for pages)
+- designs/WIREFRAMES_INDEX.md (index file at designs/ level)
+- designs/WIREFRAME_VALIDATION.md (validation report at designs/ level)
 
 Design phase: completed (status changed from user_flows_completed to completed)
 
@@ -286,9 +285,10 @@ Next command: /init-decompose-frontend
 
 ## Important Rules
 - Subagents process pages in parallel (no manual batching needed)
-- Each wireframe must be in a separate file
+- Each wireframe must be in a separate file in `designs/wireframes/`
 - Use consistent naming: lowercase-with-hyphens.md
-- Always create INDEX.md after completion
+- **Index and validation files go in `designs/` (not `designs/wireframes/`)**
+- Always create WIREFRAMES_INDEX.md and WIREFRAME_VALIDATION.md after completion
 - **Always run validation after generation**
 - Include all UI states (loading, error, empty, success)
 - Fix validation issues before marking phase complete

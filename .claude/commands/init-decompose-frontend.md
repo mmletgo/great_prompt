@@ -1,6 +1,5 @@
 ---
 description: Initialize frontend task decomposition from wireframes
-argument-hint: [batch_size]
 ---
 
 # Initialize Frontend Task Decomposition

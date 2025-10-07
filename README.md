@@ -244,15 +244,12 @@ PRD + 架构 + UX文档
 
 ## 🛠️ 配置选项
 
-### 调整批处理大小
-编辑 `CLAUDE.md` 或 `.claude/commands/continue-decompose.md`：
-```markdown
-- Limit to 5 tasks maximum  # 默认 10
-```
+### 批处理大小
+拆分阶段的批处理大小固定为 5-10 个任务，在命令内部自动控制。如需调整，可编辑 `.claude/commands/continue-decompose-frontend.md` 和 `.claude/commands/continue-decompose-backend.md` 文件中的步骤描述。
 
 ### 调整并行数量
 ```bash
-/parallel-dev-fullstack 10  # 默认 5
+/parallel-dev-fullstack 10  # 默认 5 workers
 ```
 
 ## 🔧 常见问题

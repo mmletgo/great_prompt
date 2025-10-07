@@ -1,6 +1,5 @@
 ---
 description: Initialize backend task decomposition based on PRD and architecture
-argument-hint: [batch_size]
 ---
 
 # Initialize Backend Task Decomposition

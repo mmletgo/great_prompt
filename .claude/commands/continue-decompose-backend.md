@@ -1,6 +1,5 @@
 ---
 description: Continue backend task decomposition (next batch)
-argument-hint: [batch_size]
 ---
 
 # Continue Backend Task Decomposition
@@ -97,7 +96,48 @@ Output format: JSON array of function-level tasks
 </subagent_task>
 ```
 
-### 4. Invoke Context Generator
+### 4. Save Decomposed Tasks to Registry
+For each task decomposed by the BackendDecomposer:
+
+1. **Add new tasks to `task_registry.json`**:
+   - Append each subtask to the `tasks` object
+   - Update parent task's `children` array
+   - Update parent task's `status` from "pending" to "decomposed"
+
+2. **Update metadata**:
+   - Increment `backend_metadata.total_functions`
+   - Update progress counters
+
+Example update:
+```json
+{
+  "tasks": {
+    "backend_task_001": {
+      "status": "decomposed",
+      "children": ["backend_task_010", "backend_task_011", "backend_task_012"]
+    },
+    "backend_task_010": {
+      "id": "backend_task_010",
+      "title": "loginUser",
+      "level": 3,
+      "type": "function",
+      "function_type": "endpoint",
+      "category": "backend",
+      "status": "ready",
+      "parent_id": "backend_task_001",
+      "http_method": "POST",
+      "route": "/api/auth/login",
+      "dependencies": ["backend_task_011", "backend_task_012"]
+    }
+  },
+  "backend_metadata": {
+    "total_modules": 4,
+    "total_functions": 35
+  }
+}
+```
+
+### 5. Invoke Context Generator
 ```
 Create a ContextGenerator for function task.
 
@@ -119,7 +159,12 @@ Output: .claude_tasks/contexts/backend_task_XXX_context.md with:
 </subagent_task>
 ```
 
-### 5. Output Summary
+### 6. Update Checkpoint
+Save progress after each batch:
+- Update `state.json` with latest checkpoint
+- Save `task_registry.json` with all new tasks
+
+### 7. Output Summary
 ```
 Processing backend batch...
 

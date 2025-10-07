@@ -622,25 +622,26 @@ System: ✓ Backend API development completed
 
 批处理大小影响**拆分阶段**的每批处理的任务数量：
 
-**默认配置**：每批最多处理 10 个待拆分任务
+**默认配置**：每批处理 5-10 个待拆分任务（在命令内部固定）
 
 **调整方法**：
 
-```bash
-# 小批次（上下文限制较严格时）
-/continue-decompose-frontend 5
-/continue-decompose-backend 5
+需要手动编辑命令定义文件：
+- `.claude/commands/continue-decompose-frontend.md`
+- `.claude/commands/continue-decompose-backend.md`
 
-# 默认批次
-/continue-decompose-frontend
-/continue-decompose-backend
+找到步骤1 "Load State and Get Next Batch"，将 "Get next 5-10 pending tasks" 改为你需要的数量。
 
-# 大批次（上下文充足时）
-/continue-decompose-frontend 15
-/continue-decompose-backend 15
+**示例修改**：
+```markdown
+### 1. Load State and Get Next Batch
+Read state and task registry.
+Get next 5 pending tasks.  # 改为 5（小批次）
+# 或
+Get next 15 pending tasks.  # 改为 15（大批次）
 ```
 
-**何时使用小批次（5）**：
+**何时使用小批次（3-5）**：
 - Token 限制较紧张
 - 需要更细粒度的检查点
 - 复杂模块需要更多上下文描述
@@ -690,32 +691,34 @@ System: ✓ Backend API development completed
 
 ### 批处理大小 vs Worker 数量对比
 
-| 配置项 | 影响阶段 | 作用 | 默认值 | 调整场景 |
-|--------|---------|------|--------|---------|
-| **批处理大小** | 拆分阶段 | 每批处理多少待拆分任务 | 10 | Token限制、复杂度 |
-| **Worker 数量** | 开发阶段 | 同时执行多少开发任务 | 5 | 并行度、项目规模 |
+| 配置项 | 影响阶段 | 作用 | 默认值 | 调整方式 | 调整场景 |
+|--------|---------|------|--------|----------|----------|
+| **批处理大小** | 拆分阶段 | 每批处理多少待拆分任务 | 5-10 | 编辑命令定义文件 | Token限制、复杂度 |
+| **Worker 数量** | 开发阶段 | 同时执行多少开发任务 | 5 | 命令参数 | 并行度、项目规模 |
 
 **示例**：
 
 ```bash
 # 场景1：小项目，快速验证
-/continue-decompose-frontend 5    # 小批次拆分
-/continue-decompose-backend 5
-/parallel-dev-fullstack 3         # 少量并行
+/continue-decompose-frontend       # 默认批次(5-10)
+/continue-decompose-backend
+/parallel-dev-fullstack 3          # 少量并行
 
 # 场景2：中型项目，标准流程
-/continue-decompose-frontend       # 默认批次(10)
+/continue-decompose-frontend       # 默认批次(5-10)
 /continue-decompose-backend
 /parallel-dev-fullstack 5          # 默认并行(5)
 
 # 场景3：大型项目，加速开发
-/continue-decompose-frontend 15    # 大批次拆分
-/continue-decompose-backend 15
+# 需编辑命令文件增加批次到 15
+/continue-decompose-frontend       # 需修改命令定义
+/continue-decompose-backend
 /parallel-dev-fullstack 10         # 高并行度
 
 # 场景4：复杂项目，精细控制
-/continue-decompose-frontend 5     # 小批次（精细拆分）
-/continue-decompose-backend 5
+# 需编辑命令文件减小批次到 3-5
+/continue-decompose-frontend       # 需修改命令定义
+/continue-decompose-backend
 /parallel-dev-fullstack 8          # 高并行（加速开发）
 ```
 

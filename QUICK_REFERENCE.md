@@ -175,11 +175,12 @@ decomposition_phase.status = completed
 
 ## 🔧 调优参数
 
-### 批处理大小（默认 10）
-编辑 `.claude/commands/continue-decompose.md`:
-```markdown
-- Limit to 5 tasks maximum  # 改为 5
-```
+### 批处理大小（固定 5-10）
+拆分阶段的批处理大小在命令内部固定为 5-10 个任务。如需调整，需编辑命令定义文件：
+- `.claude/commands/continue-decompose-frontend.md`
+- `.claude/commands/continue-decompose-backend.md`
+
+修改步骤1中的 "Get next 5-10 pending tasks" 为你想要的数量。
 
 ### Worker 数量（默认 5）
 ```bash

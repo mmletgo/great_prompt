@@ -1,6 +1,5 @@
 ---
 description: Continue frontend task decomposition (next batch)
-argument-hint: [batch_size]
 ---
 
 # Continue Frontend Task Decomposition
@@ -90,7 +89,47 @@ Output format: JSON array of subtasks
 </subagent_task>
 ```
 
-### 4. Invoke Context Generator for Component Tasks
+### 4. Save Decomposed Tasks to Registry
+For each task decomposed by the FrontendDecomposer:
+
+1. **Add new tasks to `task_registry.json`**:
+   - Append each subtask to the `tasks` object
+   - Update parent task's `children` array
+   - Update parent task's `status` from "pending" to "decomposed"
+
+2. **Update metadata**:
+   - Increment `frontend_metadata.total_pages` or `total_components`
+   - Update progress counters
+
+Example update:
+```json
+{
+  "tasks": {
+    "frontend_task_001": {
+      "status": "decomposed",
+      "children": ["frontend_task_005", "frontend_task_006", "frontend_task_007"]
+    },
+    "frontend_task_005": {
+      "id": "frontend_task_005",
+      "title": "LoginPage",
+      "level": 2,
+      "type": "page",
+      "category": "frontend",
+      "status": "pending",
+      "parent_id": "frontend_task_001",
+      "children": [],
+      "design_reference": "designs/wireframes/login-page.md"
+    }
+  },
+  "frontend_metadata": {
+    "total_modules": 4,
+    "total_pages": 12,
+    "total_components": 0
+  }
+}
+```
+
+### 5. Invoke Context Generator for Component Tasks
 ```
 Create a ContextGenerator subagent for component task.
 
@@ -106,15 +145,17 @@ Output: .claude_tasks/contexts/frontend_task_XXX_context.md
 </subagent_task>
 ```
 
-### 5. Update Checkpoint
-Save progress after each batch.
+### 6. Update Checkpoint
+Save progress after each batch:
+- Update `state.json` with latest checkpoint
+- Save `task_registry.json` with all new tasks
 
-### 6. Check Completion
+### 7. Check Completion
 If all tasks are at component level (type == "component"):
 - Set `decomposition_phase.frontend_status = "completed"`
 - Output completion message
 
-### 7. Output Summary
+### 8. Output Summary
 ```
 Resuming from checkpoint: frontend_task_XXX
 
