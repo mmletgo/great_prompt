@@ -52,10 +52,61 @@ For each task in batch:
 - **For each new component task, invoke ContextGenerator** (see step 5)
 - **DO NOT skip decomposition** - every page must create component tasks
 
-### 3. Invoke FrontendDecomposer Subagent
-```
-Create a FrontendDecomposer subagent for frontend_task_XXX.
+### 3. Invoke FrontendDecomposer Subagents (Parallel)
 
+**CRITICAL - CREATE ALL DECOMPOSER SUBAGENTS IN PARALLEL**:
+- You MUST create decomposer subagents for ALL tasks in the batch SIMULTANEOUSLY
+- DO NOT process tasks one by one
+- DO NOT wait for one decomposer to finish before creating the next
+- Create all `<subagent_task>` blocks together in ONE response
+- Example: If batch has 5 tasks → create 5 decomposer subagents at once
+
+**Process**:
+1. Count tasks in batch that need decomposition (type == "module" or type == "page")
+2. Output: "Creating [N] FrontendDecomposer subagents in parallel..."
+3. Create ALL decomposer subagent blocks in one response
+4. Each decomposer works independently and saves to its own temp file
+
+**Example - 5 tasks in batch**:
+```
+Batch tasks needing decomposition: 5
+Creating 5 FrontendDecomposer subagents in parallel...
+
+<subagent_task>
+Agent: @frontend-decomposer
+Input: frontend_task_001 (module)
+...
+</subagent_task>
+
+<subagent_task>
+Agent: @frontend-decomposer
+Input: frontend_task_002 (page)
+...
+</subagent_task>
+
+<subagent_task>
+Agent: @frontend-decomposer
+Input: frontend_task_003 (page)
+...
+</subagent_task>
+
+<subagent_task>
+Agent: @frontend-decomposer
+Input: frontend_task_004 (page)
+...
+</subagent_task>
+
+<subagent_task>
+Agent: @frontend-decomposer
+Input: frontend_task_005 (module)
+...
+</subagent_task>
+
+[All 5 decomposers work in parallel]
+```
+
+**For each task that needs decomposition, create this subagent**:
+```
 <subagent_task>
 Agent: @frontend-decomposer
 Input:
@@ -118,6 +169,11 @@ Output format: Save to `.claude_tasks/decomposition_temp/frontend_task_XXX.json`
 ### 4. Wait for All Decomposers to Complete
 
 **Wait for ALL decomposer subagents from step 3 to finish.**
+
+**Verification**:
+- Tasks needing decomposition: [N]
+- Decomposer subagents created: [N]  ← must match
+- ✓ All decomposers created simultaneously in one response
 
 Each decomposer saves its results to:
 - `.claude_tasks/decomposition_temp/frontend_task_XXX.json`
@@ -373,6 +429,10 @@ If all tasks are at component level (type == "component"):
 Resuming from checkpoint: frontend_task_XXX
 
 Processing frontend batch (5-10 tasks)...
+
+=== Decomposition Phase (Parallel) ===
+Tasks needing decomposition: 3
+Creating 3 FrontendDecomposer subagents in parallel...
 
 frontend_task_001 (Module: Authentication):
   ✓ Decomposed into 3 pages

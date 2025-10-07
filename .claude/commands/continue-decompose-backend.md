@@ -48,10 +48,55 @@ Get next 5-10 pending backend tasks.
 - **For each new function task, invoke ContextGenerator** (see step 5)
 - **DO NOT skip decomposition** - every service must create function tasks
 
-### 3. Invoke BackendDecomposer Subagent
-```
-Create a BackendDecomposer subagent for backend_task_XXX.
+### 3. Invoke BackendDecomposer Subagents (Parallel)
 
+**CRITICAL - CREATE ALL DECOMPOSER SUBAGENTS IN PARALLEL**:
+- You MUST create decomposer subagents for ALL tasks in the batch SIMULTANEOUSLY
+- DO NOT process tasks one by one
+- DO NOT wait for one decomposer to finish before creating the next
+- Create all `<subagent_task>` blocks together in ONE response
+- Example: If batch has 5 tasks → create 5 decomposer subagents at once
+
+**Process**:
+1. Count tasks in batch that need decomposition (type == "module" or type == "service")
+2. Output: "Creating [N] BackendDecomposer subagents in parallel..."
+3. Create ALL decomposer subagent blocks in one response
+4. Each decomposer works independently and saves to its own temp file
+
+**Example - 4 tasks in batch**:
+```
+Batch tasks needing decomposition: 4
+Creating 4 BackendDecomposer subagents in parallel...
+
+<subagent_task>
+Agent: @backend-decomposer
+Input: backend_task_001 (module)
+...
+</subagent_task>
+
+<subagent_task>
+Agent: @backend-decomposer
+Input: backend_task_002 (service)
+...
+</subagent_task>
+
+<subagent_task>
+Agent: @backend-decomposer
+Input: backend_task_003 (service)
+...
+</subagent_task>
+
+<subagent_task>
+Agent: @backend-decomposer
+Input: backend_task_004 (module)
+...
+</subagent_task>
+
+[All 4 decomposers work in parallel]
+```
+
+**For each task that needs decomposition, create this subagent**:
+```
 <subagent_task>
 Agent: @backend-decomposer
 Input:
@@ -133,6 +178,11 @@ Output format: Save to `.claude_tasks/decomposition_temp/backend_task_XXX.json`
 ### 4. Wait for All Decomposers to Complete
 
 **Wait for ALL decomposer subagents from step 3 to finish.**
+
+**Verification**:
+- Tasks needing decomposition: [N]
+- Decomposer subagents created: [N]  ← must match
+- ✓ All decomposers created simultaneously in one response
 
 Each decomposer saves its results to:
 - `.claude_tasks/decomposition_temp/backend_task_XXX.json`
@@ -420,6 +470,10 @@ Save progress after each batch:
 ### 8. Output Summary
 ```
 Processing backend batch...
+
+=== Decomposition Phase (Parallel) ===
+Tasks needing decomposition: 3
+Creating 3 BackendDecomposer subagents in parallel...
 
 backend_task_001 (Service: AuthenticationService):
   ✓ Analyzed requirements from architecture doc

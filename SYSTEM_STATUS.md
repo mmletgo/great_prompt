@@ -1335,5 +1335,161 @@ Decomposer → [写文件] → "✓" (10 bytes) → 主Agent
 ```
 
 ---
+
+### 2025-10-07 (补充12) - 明确强制 Decomposer 并行执行
+
+#### 问题
+虽然补充11实现了临时文件+Python脚本整合，但步骤3（调用decomposer）的描述容易被理解为串行：
+- 只展示了单个 decomposer 的格式
+- 没有明确说"一次性创建所有 decomposer"
+- 缺少并行创建的示例
+- AI 可能逐个创建 decomposer，等一个完成再创建下一个
+
+#### 修复
+
+**1. 修改步骤3标题，强调并行**：
+```markdown
+### 3. Invoke FrontendDecomposer Subagents (Parallel)
+### 3. Invoke BackendDecomposer Subagents (Parallel)
+```
+
+**2. 添加 CRITICAL 并行创建要求**：
+```markdown
+**CRITICAL - CREATE ALL DECOMPOSER SUBAGENTS IN PARALLEL**:
+- You MUST create decomposer subagents for ALL tasks in the batch SIMULTANEOUSLY
+- DO NOT process tasks one by one
+- DO NOT wait for one decomposer to finish before creating the next
+- Create all `<subagent_task>` blocks together in ONE response
+- Example: If batch has 5 tasks → create 5 decomposer subagents at once
+```
+
+**3. 提供完整的并行创建示例**：
+```markdown
+Example - 5 tasks in batch:
+
+Batch tasks needing decomposition: 5
+Creating 5 FrontendDecomposer subagents in parallel...
+
+<subagent_task>
+Agent: @frontend-decomposer
+Input: frontend_task_001 (module)
+...
+</subagent_task>
+
+<subagent_task>
+Agent: @frontend-decomposer
+Input: frontend_task_002 (page)
+...
+</subagent_task>
+
+... [5 subagent blocks total]
+
+[All 5 decomposers work in parallel]
+```
+
+**4. 添加验证要求（步骤4）**：
+```markdown
+**Verification**:
+- Tasks needing decomposition: [N]
+- Decomposer subagents created: [N]  ← must match
+- ✓ All decomposers created simultaneously in one response
+```
+
+**5. 在输出总结中添加验证报告**：
+```markdown
+=== Decomposition Phase (Parallel) ===
+Tasks needing decomposition: 3
+Creating 3 FrontendDecomposer subagents in parallel...
+
+frontend_task_001 (Module: Authentication):
+  ✓ Saved to: .claude_tasks/decomposition_temp/frontend_task_001.json
+  ...
+```
+
+#### 影响文件
+- **`continue-decompose-frontend.md`** - 步骤3完全重写，添加并行要求和示例；步骤4添加验证；输出总结添加验证报告
+- **`continue-decompose-backend.md`** - 步骤3完全重写，添加并行要求和示例；步骤4添加验证；输出总结添加验证报告
+
+#### 并行模型
+
+**Decomposer阶段的完整并行模型**：
+```
+主Agent (continue-decompose-frontend/backend):
+
+Step 1: 加载批次（5-10个任务）
+
+Step 2: 分析每个任务类型
+  - frontend_task_001: module (需要decompose)
+  - frontend_task_002: page (需要decompose)  
+  - frontend_task_003: component (已经是level 3，跳过)
+  - frontend_task_004: page (需要decompose)
+  - frontend_task_005: module (需要decompose)
+  → 需要decompose的任务: 4个
+
+Step 3: 一次性创建4个decomposer（并行）
+  主Agent输出:
+  ┌─ <subagent_task>@frontend-decomposer (task_001)</subagent_task>
+  ├─ <subagent_task>@frontend-decomposer (task_002)</subagent_task>
+  ├─ <subagent_task>@frontend-decomposer (task_004)</subagent_task>
+  └─ <subagent_task>@frontend-decomposer (task_005)</subagent_task>
+  
+  4个decomposer完全独立并行工作:
+  ├─ decomposer 1 → 写 task_001.json → 返回 "✓"
+  ├─ decomposer 2 → 写 task_002.json → 返回 "✓"
+  ├─ decomposer 3 → 写 task_004.json → 返回 "✓"
+  └─ decomposer 4 → 写 task_005.json → 返回 "✓"
+
+Step 4: 等待所有4个decomposer完成
+
+Step 5: Python脚本整合所有临时文件
+
+Step 6: Context generator（分批并行，每批10个）
+```
+
+#### 关键改进
+
+**修改前（容易串行）**：
+```markdown
+### 3. Invoke FrontendDecomposer Subagent
+
+Create a FrontendDecomposer subagent for frontend_task_XXX.
+<subagent_task>...</subagent_task>
+```
+→ AI理解为：逐个创建，一个接一个
+
+**修改后（强制并行）**：
+```markdown
+### 3. Invoke FrontendDecomposer Subagents (Parallel)
+
+**CRITICAL - CREATE ALL DECOMPOSER SUBAGENTS IN PARALLEL**
+- Create all subagent blocks together in ONE response
+- Example: 5 tasks → 5 decomposer subagents at once
+
+Creating 5 decomposers in parallel...
+<subagent_task>...</subagent_task>
+<subagent_task>...</subagent_task>
+<subagent_task>...</subagent_task>
+<subagent_task>...</subagent_task>
+<subagent_task>...</subagent_task>
+```
+→ AI理解为：必须一次性创建所有
+
+#### 优势
+
+1. **真正的并行**：
+   - 所有decomposer同时启动，无需等待
+   - 每个独立写文件，无冲突
+   - 最大化利用并行能力
+
+2. **性能提升**：
+   - 5个decomposer：串行15分钟 → 并行3分钟（**节省12分钟**）
+   - 10个decomposer：串行30分钟 → 并行3分钟（**节省27分钟**）
+
+3. **清晰验证**：
+   - 验证decomposer创建数量 = 需要分解的任务数量
+   - 输出报告显示"Creating N subagents in parallel"
+   - 防止遗漏任务
+
+---
 **最后更新**: 2025-10-07  
 **状态**: ✅ 系统就绪
