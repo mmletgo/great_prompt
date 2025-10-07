@@ -168,7 +168,12 @@ Example update:
 **Batching Rules**:
 1. Count total: `function_count = tasks where level==3 AND type=="function"`
 2. Calculate batches: `num_batches = ceil(function_count / 10)`
-3. Process each batch sequentially, but within each batch create all 10 subagents simultaneously
+3. **MANDATORY PARALLEL EXECUTION WITHIN EACH SUB-BATCH**:
+   - Within each sub-batch, you MUST create ALL subagents AT THE SAME TIME
+   - DO NOT process sub-batch items one by one
+   - DO NOT wait for one subagent to finish before starting the next
+   - Create 10 `<subagent_task>` blocks simultaneously in one response
+   - Example: For sub-batch of 10, output 10 subagent blocks together, not sequentially
 4. Track progress: "Processing batch X of Y (10 functions)..."
 5. Verify completion: After ALL batches, confirm total = function_count
 
@@ -178,11 +183,13 @@ Total function tasks: 32
 Sub-batches needed: 4 (10 + 10 + 10 + 2)
 
 Processing sub-batch 1 of 4 (10 functions)...
-  Creating 10 ContextGenerator subagents in parallel:
-  - backend_task_010 (loginUser)
-  - backend_task_011 (validateCredentials)
-  - backend_task_012 (findUserByEmail)
-  ... (10 total)
+  Creating ALL 10 ContextGenerator subagents SIMULTANEOUSLY:
+  
+  <subagent_task>Agent: @context-generator (backend_task_015 - authenticateUser)</subagent_task>
+  <subagent_task>Agent: @context-generator (backend_task_016 - validateToken)</subagent_task>
+  <subagent_task>Agent: @context-generator (backend_task_017 - refreshToken)</subagent_task>
+  ... [ALL 10 subagent blocks in ONE response]
+  
   ✓ Sub-batch 1 complete: 10/10 contexts generated
 
 Processing sub-batch 2 of 4 (10 functions)...
@@ -208,6 +215,9 @@ Processing sub-batch 4 of 4 (2 functions)...
 - ❌ "Processing first batch, skipping remaining" 
 - ❌ "Starting with batch 1, will continue later"
 - ❌ "Key functions in batch 1, others optional"
+- ❌ "Processing function 1... Processing function 2..." (串行执行)
+- ❌ "Let me continue with function X" (one-by-one 处理)
+- ✅ REQUIRED: "Creating ALL 10 subagents simultaneously in one response"
 - ✅ REQUIRED: "ALL X batches processed" / "100% coverage across all batches"
 
 **Verification Required**:
@@ -220,8 +230,14 @@ Processing sub-batch 4 of 4 (2 functions)...
 4. Final verification: "✓ ALL {num_batches} batches complete: {function_count}/{function_count} contexts (100% coverage)"
 
 **For ALL function-level tasks, process in sub-batches of 10**:
+
+**CRITICAL - PARALLEL EXECUTION FORMAT**:
+- For each sub-batch, create ALL subagent_task blocks in ONE response
+- DO NOT create subagents one-by-one across multiple responses
+- Output 10 `<subagent_task>` blocks together, then wait for all to complete
+
 ```
-For each sub-batch of up to 10 function tasks:
+For each sub-batch of up to 10 function tasks (create ALL simultaneously):
 
 <subagent_task>
 Agent: @context-generator

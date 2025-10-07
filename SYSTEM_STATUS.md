@@ -911,5 +911,150 @@ Context/Wireframe/Task Generation Verification:
 | 100个 | 10批次 | 10×10    | 11个（开始+10批次） |
 
 ---
+
+### 2025-10-07 (补充10) - 强制批次内真正并行执行（防止串行偷懒）
+
+#### 问题（严重 - 批次内串行执行）
+用户实际使用时发现：虽然实现了批次处理，但 AI 在批次**内部**仍然是串行执行：
+- 说："现在我需要为组件任务调用ContextGenerator。由于有18个组件，我将为第一批核心组件生成上下文。"（选择部分）
+- 说："让我继续生成context files for the remaining RegisterPage components. I'll continue with the next batch"（逐个处理）
+- 实际行为：**一个接一个**调用 context-generator，而不是批次内的10个同时调用
+- 现象：用户看到的是串行的subagent日志，而不是10个并行启动
+
+**根本原因**：
+- Batching Rules 第3条说"Process each batch **sequentially**"
+- AI 理解成整个批次都是串行的
+- 缺少"批次内必须并行"的强制性指令
+- 示例中只是列表形式，没有展示并行格式
+
+#### 修复
+
+**1. 修改 Batching Rules 第3条，明确批次内并行**：
+```markdown
+3. **MANDATORY PARALLEL EXECUTION WITHIN EACH SUB-BATCH**:
+   - Within each sub-batch, you MUST create ALL subagents AT THE SAME TIME
+   - DO NOT process sub-batch items one by one
+   - DO NOT wait for one subagent to finish before starting the next
+   - Create 10 `<subagent_task>` blocks simultaneously in one response
+   - Example: For sub-batch of 10, output 10 subagent blocks together, not sequentially
+```
+
+**2. 修改示例，展示真正的并行格式**：
+```markdown
+Processing sub-batch 1 of 3 (10 components)...
+  Creating ALL 10 ContextGenerator subagents SIMULTANEOUSLY:
+  
+  <subagent_task>Agent: @context-generator (frontend_task_008 - LoginForm)</subagent_task>
+  <subagent_task>Agent: @context-generator (frontend_task_009 - EmailInput)</subagent_task>
+  <subagent_task>Agent: @context-generator (frontend_task_010 - PasswordInput)</subagent_task>
+  ... [ALL 10 subagent blocks in ONE response]
+  
+  ✓ Sub-batch 1 complete: 10/10 contexts generated
+```
+
+**3. 添加明确的禁止串行指令**：
+```markdown
+**FORBIDDEN - PARTIAL BATCH PROCESSING**:
+- ❌ "Processing first batch, skipping remaining" 
+- ❌ "Starting with batch 1, will continue later"
+- ❌ "Key components in batch 1, others optional"
+- ❌ "Processing component 1... Processing component 2..." (串行执行)
+- ❌ "Let me continue with component X" (one-by-one 处理)
+- ✅ REQUIRED: "Creating ALL 10 subagents simultaneously in one response"
+- ✅ REQUIRED: "ALL X batches processed" / "100% coverage across all batches"
+```
+
+**4. 在 subagent 调用说明前添加并行格式要求**：
+```markdown
+**For ALL component/function/page-level tasks, process in sub-batches of 10**:
+
+**CRITICAL - PARALLEL EXECUTION FORMAT**:
+- For each sub-batch, create ALL subagent_task blocks in ONE response
+- DO NOT create subagents one-by-one across multiple responses
+- Output 10 `<subagent_task>` blocks together, then wait for all to complete
+```
+
+#### 影响文件
+- **`continue-decompose-frontend.md`** - 4处修改（Batching Rules, 示例, FORBIDDEN, subagent调用格式）
+- **`continue-decompose-backend.md`** - 4处修改（同上）
+- **`generate-wireframes.md`** - 4处修改（Batching Rules, 示例, FORBIDDEN, subagent调用格式）
+- **`parallel-dev-fullstack.md`** - 4处修改（Batching Rules, 示例, FORBIDDEN, 示例格式）
+
+#### 核心改进
+
+**修改前（容易误解为串行）**：
+```markdown
+3. Process each batch sequentially, but within each batch create all 10 subagents simultaneously
+```
+
+**修改后（强制并行）**：
+```markdown
+3. **MANDATORY PARALLEL EXECUTION WITHIN EACH SUB-BATCH**:
+   - Within each sub-batch, you MUST create ALL subagents AT THE SAME TIME
+   - DO NOT process sub-batch items one by one
+   - Create 10 `<subagent_task>` blocks simultaneously in one response
+```
+
+**示例改进**：
+```markdown
+# 修改前（列表形式，看起来像串行）
+Creating 10 ContextGenerator subagents in parallel:
+  - frontend_task_008 (LoginForm)
+  - frontend_task_009 (EmailInput)
+  ... (10 total)
+
+# 修改后（明确展示并行格式）
+Creating ALL 10 ContextGenerator subagents SIMULTANEOUSLY:
+
+<subagent_task>Agent: @context-generator (frontend_task_008)</subagent_task>
+<subagent_task>Agent: @context-generator (frontend_task_009)</subagent_task>
+... [ALL 10 subagent blocks in ONE response]
+```
+
+#### 结果
+- ✅ 明确要求批次内所有subagent在**一次响应**中创建
+- ✅ 禁止"一个接一个"处理（串行）
+- ✅ 禁止"让我继续下一个"（分多次响应）
+- ✅ 示例展示真实的并行格式（多个`<subagent_task>`块）
+- ✅ Batching Rules 第3条改为强制并行指令
+- ✅ 新增 FORBIDDEN 条目明确禁止串行表述
+- ✅ 新增 CRITICAL 说明块强调并行格式
+- ✅ 确保10个任务真正并行执行，而不是"看起来并行，实际串行"
+
+#### 预期行为对比
+
+**错误行为（串行 - 现在被禁止）**：
+```
+Response 1: Creating context for LoginForm...
+  <subagent_task>Agent: @context-generator (LoginForm)</subagent_task>
+
+Response 2: Let me continue with EmailInput...
+  <subagent_task>Agent: @context-generator (EmailInput)</subagent_task>
+
+Response 3: Processing PasswordInput...
+  ...
+```
+⏱️ 时间：10个任务 × 30秒 = 5分钟（串行）
+
+**正确行为（并行 - 现在强制）**：
+```
+Response 1: Creating ALL 10 subagents simultaneously:
+  <subagent_task>Agent: @context-generator (LoginForm)</subagent_task>
+  <subagent_task>Agent: @context-generator (EmailInput)</subagent_task>
+  <subagent_task>Agent: @context-generator (PasswordInput)</subagent_task>
+  <subagent_task>Agent: @context-generator (LoginButton)</subagent_task>
+  ... [10 total in ONE response]
+
+[等待所有10个完成]
+✓ Sub-batch 1 complete: 10/10
+```
+⏱️ 时间：max(10个任务的时间) ≈ 30-60秒（并行）
+
+**性能提升**：
+- 串行：5分钟/批次 → 并行：1分钟/批次
+- 25个任务 (3批次)：15分钟 → 3分钟（**节省12分钟**）
+- 100个任务 (10批次)：50分钟 → 10分钟（**节省40分钟**）
+
+---
 **最后更新**: 2025-10-07  
 **状态**: ✅ 系统就绪

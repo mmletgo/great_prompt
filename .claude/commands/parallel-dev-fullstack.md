@@ -42,7 +42,10 @@ Determine task types in current wave:
 2. If wave_task_count <= 10: Create all subagents at once
 3. If wave_task_count > 10: 
    - Calculate sub-batches: `num_batches = ceil(wave_task_count / 10)`
-   - Process each sub-batch sequentially, within sub-batch create all subagents simultaneously
+   - **MANDATORY PARALLEL EXECUTION WITHIN EACH SUB-BATCH**:
+     * Within each sub-batch, you MUST create ALL subagents AT THE SAME TIME
+     * DO NOT process sub-batch items one by one
+     * Create 10 `<subagent_task>` blocks simultaneously in one response
    - Track: "Wave [N], sub-batch X of Y (10 tasks)..."
 4. Verify: After processing wave, confirm all tasks completed
 
@@ -52,10 +55,11 @@ Wave 3: Backend Service Layer (27 tasks)
 Sub-batches needed: 3 (10 + 10 + 7)
 
 Wave 3, sub-batch 1 of 3 (10 tasks)...
-  Creating 10 developer subagents in parallel:
-  - backend_task_020 (@backend-developer) - validateUserCredentials
-  - backend_task_021 (@backend-developer) - hashPassword
-  ... (10 total)
+  Creating ALL 10 developer subagents SIMULTANEOUSLY:
+  
+  <subagent_task>Agent: @backend-developer (backend_task_020 - validateUserCredentials)</subagent_task>
+  <subagent_task>Agent: @backend-developer (backend_task_021 - hashPassword)</subagent_task>
+  ... [ALL 10 subagent blocks in ONE response]
   
   Executing with worker pool (5 concurrent):
   [Running] 020, 021, 022, 023, 024
@@ -74,6 +78,9 @@ Wave 3, sub-batch 3 of 3 (7 tasks)...
 **FORBIDDEN - PARTIAL WAVE PROCESSING**:
 - ❌ "Processing first sub-batch, skipping remaining in wave"
 - ❌ "Core tasks in sub-batch 1, others optional"
+- ❌ "Processing task 1... Processing task 2..." (串行执行)
+- ❌ "Let me continue with task X" (one-by-one 处理)
+- ✅ REQUIRED: "Creating ALL 10 subagents simultaneously in one response"
 - ✅ REQUIRED: "ALL sub-batches in wave processed" / "100% wave coverage"
 
 **Verification Required**:
@@ -207,14 +214,15 @@ Success criteria:
 
 **Example**: Wave 3 has 12 backend service functions, workers=5
 ```
-Wave 3: Creating 12 developer subagents in parallel...
+Wave 3: Creating ALL 12 developer subagents SIMULTANEOUSLY in ONE response...
 
-Subagents created:
-  1. backend_task_020 (@backend-developer) - validateUserCredentials
-  2. backend_task_021 (@backend-developer) - hashPassword
-  3. backend_task_022 (@backend-developer) - generateJWT
-  ... (12 total subagents)
-  12. backend_task_031 (@backend-developer) - updateUserProfile
+<subagent_task>Agent: @backend-developer (backend_task_020 - validateUserCredentials)</subagent_task>
+<subagent_task>Agent: @backend-developer (backend_task_021 - hashPassword)</subagent_task>
+<subagent_task>Agent: @backend-developer (backend_task_022 - generateJWT)</subagent_task>
+... [ALL 12 subagent blocks together]
+<subagent_task>Agent: @backend-developer (backend_task_031 - updateUserProfile)</subagent_task>
+
+Subagents created: 12 total
 
 Executing with worker pool (5 concurrent):
   [Running] backend_task_020, 021, 022, 023, 024

@@ -160,7 +160,12 @@ Example update:
 **Batching Rules**:
 1. Count total: `component_count = tasks where level==3 AND type=="component"`
 2. Calculate batches: `num_batches = ceil(component_count / 10)`
-3. Process each batch sequentially, but within each batch create all 10 subagents simultaneously
+3. **MANDATORY PARALLEL EXECUTION WITHIN EACH SUB-BATCH**:
+   - Within each sub-batch, you MUST create ALL subagents AT THE SAME TIME
+   - DO NOT process sub-batch items one by one
+   - DO NOT wait for one subagent to finish before starting the next
+   - Create 10 `<subagent_task>` blocks simultaneously in one response
+   - Example: For sub-batch of 10, output 10 subagent blocks together, not sequentially
 4. Track progress: "Processing batch X of Y (10 components)..."
 5. Verify completion: After ALL batches, confirm total = component_count
 
@@ -170,11 +175,13 @@ Total component tasks: 25
 Sub-batches needed: 3 (10 + 10 + 5)
 
 Processing sub-batch 1 of 3 (10 components)...
-  Creating 10 ContextGenerator subagents in parallel:
-  - frontend_task_008 (LoginForm)
-  - frontend_task_009 (EmailInput)
-  - frontend_task_010 (PasswordInput)
-  ... (10 total)
+  Creating ALL 10 ContextGenerator subagents SIMULTANEOUSLY:
+  
+  <subagent_task>Agent: @context-generator (frontend_task_008 - LoginForm)</subagent_task>
+  <subagent_task>Agent: @context-generator (frontend_task_009 - EmailInput)</subagent_task>
+  <subagent_task>Agent: @context-generator (frontend_task_010 - PasswordInput)</subagent_task>
+  ... [ALL 10 subagent blocks in ONE response]
+  
   ✓ Sub-batch 1 complete: 10/10 contexts generated
 
 Processing sub-batch 2 of 3 (10 components)...
@@ -197,6 +204,9 @@ Processing sub-batch 3 of 3 (5 components)...
 - ❌ "Processing first batch, skipping remaining" 
 - ❌ "Starting with batch 1, will continue later"
 - ❌ "Key components in batch 1, others optional"
+- ❌ "Processing component 1... Processing component 2..." (串行执行)
+- ❌ "Let me continue with component X" (one-by-one 处理)
+- ✅ REQUIRED: "Creating ALL 10 subagents simultaneously in one response"
 - ✅ REQUIRED: "ALL X batches processed" / "100% coverage across all batches"
 
 **Verification Required**:
@@ -209,8 +219,14 @@ Processing sub-batch 3 of 3 (5 components)...
 4. Final verification: "✓ ALL {num_batches} batches complete: {component_count}/{component_count} contexts (100% coverage)"
 
 **For ALL component-level tasks, process in sub-batches of 10**:
+
+**CRITICAL - PARALLEL EXECUTION FORMAT**:
+- For each sub-batch, create ALL subagent_task blocks in ONE response
+- DO NOT create subagents one-by-one across multiple responses
+- Output 10 `<subagent_task>` blocks together, then wait for all to complete
+
 ```
-For each sub-batch of up to 10 component tasks:
+For each sub-batch of up to 10 component tasks (create ALL simultaneously):
 
 <subagent_task>
 Agent: @context-generator

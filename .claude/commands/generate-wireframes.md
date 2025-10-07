@@ -42,7 +42,12 @@ Ensure `designs/wireframes/` directory exists.
 **Batching Rules**:
 1. Count total: `page_count = total unique pages from user-flows.md`
 2. Calculate batches: `num_batches = ceil(page_count / 10)`
-3. Process each batch sequentially, but within each batch create all 10 subagents simultaneously
+3. **MANDATORY PARALLEL EXECUTION WITHIN EACH SUB-BATCH**:
+   - Within each sub-batch, you MUST create ALL subagents AT THE SAME TIME
+   - DO NOT process sub-batch items one by one
+   - DO NOT wait for one subagent to finish before starting the next
+   - Create 10 `<subagent_task>` blocks simultaneously in one response
+   - Example: For sub-batch of 10, output 10 subagent blocks together, not sequentially
 4. Track progress: "Processing batch X of Y (10 pages)..."
 5. Verify completion: After ALL batches, confirm total = page_count
 
@@ -52,11 +57,13 @@ Total pages: 23
 Sub-batches needed: 3 (10 + 10 + 3)
 
 Processing sub-batch 1 of 3 (10 pages)...
-  Creating 10 WireframeDesigner subagents in parallel:
-  - Login Page → designs/wireframes/login-page.md
-  - Signup Page → designs/wireframes/signup-page.md
-  - Dashboard → designs/wireframes/dashboard.md
-  ... (10 total)
+  Creating ALL 10 WireframeDesigner subagents SIMULTANEOUSLY:
+  
+  <subagent_task>Agent: @wireframe-designer (Login Page)</subagent_task>
+  <subagent_task>Agent: @wireframe-designer (Signup Page)</subagent_task>
+  <subagent_task>Agent: @wireframe-designer (Dashboard)</subagent_task>
+  ... [ALL 10 subagent blocks in ONE response]
+  
   ✓ Sub-batch 1 complete: 10/10 wireframes generated
 
 Processing sub-batch 2 of 3 (10 pages)...
@@ -80,6 +87,9 @@ Processing sub-batch 3 of 3 (3 pages)...
 - ❌ "Processing first batch, skipping remaining pages"
 - ❌ "Starting with batch 1, will continue later"
 - ❌ "Core pages in batch 1, others optional"
+- ❌ "Processing page 1... Processing page 2..." (串行执行)
+- ❌ "Let me continue with page X" (one-by-one 处理)
+- ✅ REQUIRED: "Creating ALL 10 subagents simultaneously in one response"
 - ✅ REQUIRED: "ALL X batches processed" / "100% coverage across all batches"
 
 **Verification Required**:
@@ -95,10 +105,15 @@ Processing sub-batch 3 of 3 (3 pages)...
 
 #### 3.1 Create WireframeDesigner Subagents in Sub-Batches
 
+**CRITICAL - PARALLEL EXECUTION FORMAT**:
+- For each sub-batch, create ALL subagent_task blocks in ONE response
+- DO NOT create subagents one-by-one across multiple responses
+- Output 10 `<subagent_task>` blocks together, then wait for all to complete
+
 For the complete list of pages from step 1, process in sub-batches of up to 10 pages:
 
 ```
-For each sub-batch of up to 10 pages:
+For each sub-batch of up to 10 pages (create ALL simultaneously):
 
 <subagent_task>
 Agent: @wireframe-designer
