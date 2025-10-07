@@ -1,0 +1,292 @@
+---
+description: Generate low-fidelity wireframes from user flows
+---
+
+# Generate Wireframes
+
+## Your Task
+Generate detailed low-fidelity wireframes for each page/screen identified in the user flows.
+
+## Prerequisites
+Check that the following files exist:
+- `designs/user-flows.md` - User flow diagrams
+- `docs/front-end-spec.md` - UX design specifications
+
+Check state:
+- `design_phase.status` should be "user_flows_completed"
+
+## Steps
+
+### 1. Extract Pages from User Flows
+Read `designs/user-flows.md` and identify all unique pages/screens.
+
+Create a list of pages, for example:
+- Login Page
+- Dashboard
+- User Profile
+- Settings Page
+- etc.
+
+### 2. Create Wireframe Directory
+Ensure `designs/wireframes/` directory exists.
+
+### 3. Generate Wireframes for All Pages
+
+For each page identified in step 1, invoke the WireframeDesigner subagent:
+
+#### 3.1 Invoke WireframeDesigner Subagent
+```
+Create a WireframeDesigner subagent for [PageName].
+
+<subagent_task>
+Agent: @wireframe-designer
+Input:
+- Page name: [PageName]
+- User flows: designs/user-flows.md
+- UX spec: docs/front-end-spec.md
+- Context: How this page appears in user flows
+
+Task:
+1. Identify page purpose and user goals
+2. List all UI components needed
+3. Define layout structure (header, nav, content, footer)
+4. Specify interactive elements (buttons, forms, etc.)
+5. Include states (loading, error, empty, success)
+6. Add annotations for behavior and interactions
+7. Use ASCII art or Mermaid for wireframe visualization
+8. Consider responsive design (mobile, tablet, desktop)
+
+Output format: Create designs/wireframes/[page-name].md with:
+# [Page Name] - Wireframe
+
+## Page Overview
+[Purpose and context]
+
+## User Goals
+- Goal 1
+- Goal 2
+
+## Layout Structure
+[ASCII art or Mermaid diagram showing layout]
+
+## Components
+### Component 1
+- Type: [button/form/card/etc]
+- Position: [location]
+- Behavior: [interaction]
+- States: [default/hover/active/disabled]
+
+## Responsive Breakpoints
+### Desktop (>1024px)
+[Layout description]
+
+### Tablet (768-1024px)
+[Layout adjustments]
+
+### Mobile (<768px)
+[Mobile layout]
+
+## Interaction Notes
+- [Key interactions]
+- [Transitions to other pages]
+- [API calls triggered]
+
+## Edge Cases
+- Loading state
+- Error state
+- Empty state
+- Success feedback
+</subagent_task>
+```
+
+**Note**: Subagents can process multiple pages in parallel. Create all subagent tasks, then wait for completion.
+
+### 4. Validate Wireframes Quality
+
+After all wireframes are generated, perform comprehensive validation:
+
+#### 5.1 Design Consistency Check
+For each wireframe file, verify:
+
+**Component Consistency**:
+- [ ] All buttons follow the same naming convention (e.g., PrimaryButton, SecondaryButton)
+- [ ] Form components use consistent field types (TextInput, SelectDropdown, etc.)
+- [ ] Card/Container components have consistent structure
+- [ ] Navigation elements match across pages
+- [ ] Color/styling references match front-end-spec.md
+
+**Layout Consistency**:
+- [ ] Header/Navigation placement is consistent
+- [ ] Footer placement is consistent
+- [ ] Content area structure follows patterns
+- [ ] Spacing/padding annotations are uniform
+
+**State Coverage**:
+- [ ] Each interactive component defines all states (default, hover, active, disabled, loading, error)
+- [ ] Page-level states documented (loading, error, empty, success)
+- [ ] Transition states specified (page-to-page navigation)
+
+#### 5.2 Completeness Check
+Verify each wireframe includes:
+- [ ] Page Overview (purpose and context)
+- [ ] User Goals section
+- [ ] Layout Structure (ASCII art or Mermaid diagram)
+- [ ] Components list with specifications
+- [ ] Responsive breakpoints (Desktop, Tablet, Mobile)
+- [ ] Interaction notes
+- [ ] Edge cases
+
+#### 5.3 Cross-Reference Validation
+- [ ] All pages mentioned in user-flows.md have wireframes
+- [ ] All components referenced follow front-end-spec.md design system
+- [ ] Navigation links match actual page files
+- [ ] API interaction notes align with backend requirements (if specified)
+
+#### 5.4 Naming Convention Check
+- [ ] All file names use lowercase-with-hyphens.md format
+- [ ] File names match page titles (normalized)
+- [ ] No duplicate file names
+- [ ] INDEX.md exists and is properly formatted
+
+#### 5.5 Generate Validation Report
+Create `designs/wireframes/VALIDATION_REPORT.md`:
+```markdown
+# Wireframes Validation Report
+
+Generated: [TIMESTAMP]
+
+## Summary
+- Total wireframes: [N]
+- Passed validation: [M]
+- Issues found: [X]
+
+## Design Consistency
+✓ Component naming: Consistent
+✓ Layout structure: Consistent
+✓ State coverage: Complete
+⚠ [Issue description if any]
+
+## Completeness
+✓ All required sections present
+⚠ [Missing sections in specific files]
+
+## Cross-References
+✓ User flows coverage: 100%
+✓ Design system compliance: [percentage]
+⚠ [Mismatches if any]
+
+## Issues to Fix
+1. [Issue 1 - file: designs/wireframes/page-x.md]
+2. [Issue 2 - file: designs/wireframes/page-y.md]
+
+## Recommendations
+- [Recommendation 1]
+- [Recommendation 2]
+
+## Status
+[PASSED / NEEDS REVIEW / FAILED]
+```
+
+#### 4.6 Address Validation Issues
+If issues found:
+1. List all issues clearly
+2. Re-generate problematic wireframes with corrections
+3. Re-run validation
+4. Repeat until all issues resolved
+
+### 5. Update State
+When all wireframes complete and pass validation:
+```json
+{
+  "design_phase": {
+    "status": "wireframes_completed",
+    "wireframes_count": [N],
+    "wireframes_directory": "designs/wireframes/",
+    "validation_status": "passed",
+    "validation_report": "designs/wireframes/VALIDATION_REPORT.md"
+  }
+}
+```
+
+### 6. Generate Wireframes Index
+Create `designs/wireframes/INDEX.md`:
+```markdown
+### 6. Generate Wireframes Index
+Create `designs/wireframes/INDEX.md`:
+```markdown
+# Wireframes Index
+
+## All Pages ([N] total)
+
+### Authentication
+- [Login](./login-page.md)
+- [Signup](./signup-page.md)
+
+### Dashboard
+- [Main Dashboard](./dashboard.md)
+
+### [Category]
+- [Page Name](./page-name.md)
+
+## Design System Reference
+See: docs/front-end-spec.md
+
+## User Flows Reference
+See: ../user-flows.md
+```
+
+### 7. Output Summary
+```
+
+### 7. Output Summary
+Print:
+```
+Generating wireframes for [N] pages...
+
+Creating wireframe-designer subagents for all pages...
+✓ [Page 1]: designs/wireframes/page-1.md
+✓ [Page 2]: designs/wireframes/page-2.md
+✓ [Page 3]: designs/wireframes/page-3.md
+...
+✓ [Page N]: designs/wireframes/page-n.md
+
+=== Wireframe Generation Complete ===
+Total pages: [N]
+✓ Generated: [N]
+✗ Failed: [0]
+
+=== Validation Results ===
+Running comprehensive validation...
+
+Component Consistency: ✓ PASSED
+Layout Consistency: ✓ PASSED
+State Coverage: ✓ PASSED
+Completeness Check: ✓ PASSED
+Cross-References: ✓ PASSED
+Naming Conventions: ✓ PASSED
+
+Issues found: [X]
+[List any issues]
+
+Validation status: [PASSED / NEEDS REVIEW]
+
+Generated files:
+- designs/wireframes/ ([N] wireframe files)
+- designs/wireframes/INDEX.md
+- designs/wireframes/VALIDATION_REPORT.md
+
+Design phase: wireframes_completed
+
+Next command: /init-decompose-frontend
+```
+
+## Important Rules
+- Subagents process pages in parallel (no manual batching needed)
+- Each wireframe must be in a separate file
+- Use consistent naming: lowercase-with-hyphens.md
+- Always create INDEX.md after completion
+- **Always run validation after generation**
+- Include all UI states (loading, error, empty, success)
+- Fix validation issues before marking phase complete
+- All components must reference design system from front-end-spec.md
+- Component names must be consistent across all wireframes
