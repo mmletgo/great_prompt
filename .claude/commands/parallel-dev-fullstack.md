@@ -18,8 +18,16 @@ Execute all frontend and backend tasks in parallel following the dependency grap
 Read execution_order from task_registry.json.
 Parse workers argument (default: 5).
 
-### 2. Process Each Wave
-For each wave in execution order:
+### 2. Process Each Wave (Serial Waves, Parallel Batches)
+
+**Wave Execution Model**:
+- Waves are executed SERIALLY (one wave at a time, respecting dependencies)
+- Within each wave, tasks are divided into BATCHES
+- Within each batch, tasks execute in PARALLEL
+- Wait for current batch to complete before starting next batch
+- Wait for current wave to complete before starting next wave
+
+For each wave in execution_order:
 
 #### 2.1 Identify Wave Category
 Determine task types in current wave:
@@ -27,72 +35,88 @@ Determine task types in current wave:
 - Frontend tasks: Use @frontend-developer
 - Mixed wave: Use appropriate developer for each task type
 
-#### 2.2 Create Developer Subagents
+#### 2.2 Create Developer Subagents in Batches
 
 **CRITICAL - BATCHED PARALLEL EXECUTION WITHIN WAVE**:
-- You MUST create developer subagents for ALL tasks in the current wave
-- If wave has more than 10 tasks, process in sub-batches of maximum 10 subagents
-- Count wave tasks FIRST, calculate number of sub-batches needed
-- Process ALL sub-batches within the wave - DO NOT skip any sub-batch
-- Each sub-batch must complete before starting next sub-batch within the wave
-- ALL tasks in a wave MUST be processed (100% wave coverage)
+- Divide wave tasks into BATCHES (maximum 10 tasks per batch)
+- Within each batch, create ALL subagents SIMULTANEOUSLY
+- Wait for current batch to complete before starting next batch
+- This ensures manageable parallelism and memory usage
+- ALL tasks in wave MUST be processed (100% wave coverage)
 
-**Batching Rules for Large Waves**:
+**Batching Rules**:
 1. Count tasks in wave: `wave_task_count = tasks in current wave`
-2. If wave_task_count <= 10: Create all subagents at once
-3. If wave_task_count > 10: 
-   - Calculate sub-batches: `num_batches = ceil(wave_task_count / 10)`
-   - **MANDATORY PARALLEL EXECUTION WITHIN EACH SUB-BATCH**:
-     * Within each sub-batch, you MUST create ALL subagents AT THE SAME TIME
-     * DO NOT process sub-batch items one by one
-     * Create 10 `<subagent_task>` blocks simultaneously in one response
-   - Track: "Wave [N], sub-batch X of Y (10 tasks)..."
-4. Verify: After processing wave, confirm all tasks completed
+2. Calculate batches: `num_batches = ceil(wave_task_count / 10)`
+3. For each batch (1 to num_batches):
+   - Create ALL subagents in the batch SIMULTANEOUSLY (in ONE response)
+   - Wait for ALL subagents in this batch to complete
+   - Then proceed to next batch
+4. After all batches in wave complete, proceed to next wave
 
-**Example - Wave 3 has 27 tasks**:
+**Example - Wave 3 has 27 tasks, workers=5**:
 ```
 Wave 3: Backend Service Layer (27 tasks)
-Sub-batches needed: 3 (10 + 10 + 7)
+Batches needed: 3 (10 + 10 + 7)
 
-Wave 3, sub-batch 1 of 3 (10 tasks)...
-  Creating ALL 10 developer subagents SIMULTANEOUSLY:
-  
-  <subagent_task>Agent: @backend-developer (backend_task_020 - validateUserCredentials)</subagent_task>
-  <subagent_task>Agent: @backend-developer (backend_task_021 - hashPassword)</subagent_task>
-  ... [ALL 10 subagent blocks in ONE response]
-  
-  Executing with worker pool (5 concurrent):
+Batch 1 of 3 (10 tasks) - Creating ALL 10 subagents SIMULTANEOUSLY:
+
+<subagent_task>Agent: @backend-developer (backend_task_020 - validateUserCredentials)</subagent_task>
+<subagent_task>Agent: @backend-developer (backend_task_021 - hashPassword)</subagent_task>
+<subagent_task>Agent: @backend-developer (backend_task_022 - generateJWT)</subagent_task>
+... [ALL 10 subagent blocks in ONE response]
+<subagent_task>Agent: @backend-developer (backend_task_029 - verifyEmail)</subagent_task>
+
+Executing batch 1 with worker pool (5 concurrent):
   [Running] 020, 021, 022, 023, 024
-  [Queued]  025-029
-  ✓ Sub-batch 1 complete: 10/10 tasks
+  [Queued]  025, 026, 027, 028, 029
+  
+  ✓ backend_task_020 completed (2.3 min)
+  [Running] backend_task_025 (filled slot)
+  
+  ✓ backend_task_021 completed (2.1 min)
+  [Running] backend_task_026 (filled slot)
+  ...
+  
+✓ Batch 1 complete: 10/10 tasks
 
-Wave 3, sub-batch 2 of 3 (10 tasks)...
-  ✓ Sub-batch 2 complete: 10/10 tasks
+[Wait for batch 1 to complete, then proceed to batch 2]
 
-Wave 3, sub-batch 3 of 3 (7 tasks)...
-  ✓ Sub-batch 3 complete: 7/7 tasks
+Batch 2 of 3 (10 tasks) - Creating ALL 10 subagents SIMULTANEOUSLY:
+... [create all 10 subagents]
+✓ Batch 2 complete: 10/10 tasks
+
+Batch 3 of 3 (7 tasks) - Creating ALL 7 subagents SIMULTANEOUSLY:
+... [create all 7 subagents]
+✓ Batch 3 complete: 7/7 tasks
 
 ✓ Wave 3 complete: 27/27 tasks (100% coverage)
+
+[Now proceed to Wave 4]
 ```
 
-**FORBIDDEN - PARTIAL WAVE PROCESSING**:
-- ❌ "Processing first sub-batch, skipping remaining in wave"
-- ❌ "Core tasks in sub-batch 1, others optional"
-- ❌ "Processing task 1... Processing task 2..." (串行执行)
-- ❌ "Let me continue with task X" (one-by-one 处理)
-- ✅ REQUIRED: "Creating ALL 10 subagents simultaneously in one response"
-- ✅ REQUIRED: "ALL sub-batches in wave processed" / "100% wave coverage"
+**FORBIDDEN - INCORRECT EXECUTION PATTERNS**:
+- ❌ "Creating all wave tasks at once without batching" (memory issues)
+- ❌ "Proceeding to next wave before current wave completes" (breaks dependencies)
+- ❌ "Processing tasks one by one within batch" (not parallel)
+- ❌ "Skipping batches in a wave" (incomplete coverage)
+- ✅ REQUIRED: "Creating ALL batch tasks SIMULTANEOUSLY in ONE response"
+- ✅ REQUIRED: "Waiting for batch to complete before next batch"
+- ✅ REQUIRED: "Waiting for wave to complete before next wave"
+- ✅ REQUIRED: "100% wave coverage across all batches"
 
 **Verification Required**:
-1. Count tasks in current wave: `wave_task_count = tasks in wave [N]`
-2. Determine batching:
-   - If wave_task_count <= 10: Single batch
-   - If wave_task_count > 10: Calculate `num_batches = ceil(wave_task_count / 10)`
-3. For each sub-batch (if applicable):
-   - Output: "Wave [N], sub-batch {i} of {num_batches} ({size} tasks)..."
-   - Create up to 10 subagents per sub-batch
-   - Confirm: "✓ Sub-batch {i} complete: {size}/{size} tasks"
-4. Final wave verification: "✓ Wave [N] complete: {wave_task_count}/{wave_task_count} tasks (100% coverage)"
+1. For each wave:
+   - Count tasks: `wave_task_count = tasks in wave [N]`
+   - Calculate batches: `num_batches = ceil(wave_task_count / 10)`
+   - Output: "Wave [N]: {wave_task_count} tasks, {num_batches} batches"
+2. For each batch in wave:
+   - Output: "Batch {i} of {num_batches} ({batch_size} tasks) - Creating ALL {batch_size} subagents SIMULTANEOUSLY..."
+   - Create ALL subagents for this batch in one response
+   - Wait for batch to complete
+   - Confirm: "✓ Batch {i} complete: {batch_size}/{batch_size} tasks"
+3. After all batches in wave:
+   - Confirm: "✓ Wave [N] complete: {wave_task_count}/{wave_task_count} tasks (100% coverage)"
+   - Proceed to next wave
 
 **For backend tasks:**
 ```
@@ -203,59 +227,69 @@ Success criteria:
 </subagent_task>
 ```
 
-#### 2.3 Execute Wave in Parallel
+#### 2.3 Execute Batches Within Wave
 
-**Parallel Execution Model**:
-- Create ALL subagent tasks for the wave at once (not sequentially)
-- Subagents execute concurrently (up to `workers` limit controls parallel threads)
-- If wave has 15 tasks and workers=5: create 15 subagents, run 5 at a time
-- System automatically schedules execution based on worker availability
-- Monitor progress and collect results as they complete
+**Batch Execution Model**:
+- Within each batch, ALL tasks execute in PARALLEL
+- Worker pool controls concurrent execution (e.g., workers=5 means 5 tasks run simultaneously)
+- Remaining tasks in batch are queued and execute as workers become available
+- Wait for ALL tasks in current batch to complete before starting next batch
+- This provides manageable parallelism while ensuring progress tracking
 
-**Example**: Wave 3 has 12 backend service functions, workers=5
+**Execution Flow Example** (Wave with 27 tasks, workers=5):
 ```
-Wave 3: Creating ALL 12 developer subagents SIMULTANEOUSLY in ONE response...
-
-<subagent_task>Agent: @backend-developer (backend_task_020 - validateUserCredentials)</subagent_task>
-<subagent_task>Agent: @backend-developer (backend_task_021 - hashPassword)</subagent_task>
-<subagent_task>Agent: @backend-developer (backend_task_022 - generateJWT)</subagent_task>
-... [ALL 12 subagent blocks together]
-<subagent_task>Agent: @backend-developer (backend_task_031 - updateUserProfile)</subagent_task>
-
-Subagents created: 12 total
-
-Executing with worker pool (5 concurrent):
-  [Running] backend_task_020, 021, 022, 023, 024
-  [Queued]  backend_task_025-031
+Batch 1: 10 tasks created simultaneously
+  Worker Pool Status:
+    [Slot 1] backend_task_020 - Running (2.3 min)
+    [Slot 2] backend_task_021 - Running (2.1 min)
+    [Slot 3] backend_task_022 - Running (1.8 min)
+    [Slot 4] backend_task_023 - Running (2.5 min)
+    [Slot 5] backend_task_024 - Running (2.0 min)
+    [Queue]  backend_task_025, 026, 027, 028, 029
+    
+  As tasks complete, queued tasks fill empty slots:
+    ✓ backend_task_022 completed (1.8 min)
+    [Slot 3] backend_task_025 - Running (now fills slot 3)
+    
+    ✓ backend_task_021 completed (2.1 min)
+    [Slot 2] backend_task_026 - Running (now fills slot 2)
+    
+  ... continue until all 10 tasks complete
   
-  ✓ backend_task_020 completed (2.3 min)
-  [Running] backend_task_025 (filled slot)
+✓ Batch 1 complete: 10/10 tasks
+
+[Now start Batch 2, not before]
+
+Batch 2: 10 tasks created simultaneously
+  ... same execution pattern
   
-  ✓ backend_task_021 completed (2.1 min)
-  [Running] backend_task_026 (filled slot)
-  ...
+✓ Batch 2 complete: 10/10 tasks
+
+Batch 3: 7 tasks created simultaneously
+  ... same execution pattern
   
-✓ All 12 tasks completed
+✓ Batch 3 complete: 7/7 tasks
+
+✓ Wave complete: 27/27 tasks
 ```
 
-**Verification**:
-- Confirm all wave tasks have subagents created
-- Track completion count matches task count
-- Report any failures immediately
+#### 2.4 Verify Batch Results
 
-#### 2.4 Verify Wave Results
-For each completed task:
-- ✓ Check all tests pass
-- ✓ Verify implementation matches specification
-- ✓ For frontend: verify against wireframe
+After each batch completes, verify results:
+- ✓ Check all tests pass for tasks in batch
+- ✓ Verify implementations match specifications
+- ✓ For frontend: verify against wireframes
 - ✓ For backend API: verify OpenAPI docs generated
 - ✓ Confirm no breaking changes to dependencies
+- ✓ Mark tasks as completed or failed in task_registry.json
 
-#### 2.5 Update Status
-- Mark tasks as `completed` or `failed` in task_registry.json
-- Update state.json with current wave progress
-- Log any errors or warnings
-- Save checkpoint after wave completion
+#### 2.5 Update Progress After Wave
+
+After all batches in wave complete:
+- Update state.json with current wave completion
+- Save task_registry.json with task statuses
+- Log wave summary (completed/failed counts)
+- Proceed to next wave
 
 ### 3. Cross-Stack Integration Validation
 
@@ -376,34 +410,42 @@ Frontend Development:
 
 Execution Timeline:
   Wave 1 (Backend Utils + Shared Components): [N] tasks
-    - Tasks in wave: [N]
-    - Sub-batches: [1 if N<=10, else ceil(N/10)]
-    - Sub-batch 1: 10/10 tasks ✓ (if applicable)
-    - Sub-batch 2: [X]/[X] tasks ✓ (if applicable)
-    - Total completed: [N]/[N]
-    ✓ Wave 1 coverage: 100%
+    - Batches: [B] batches (max 10 tasks per batch)
+    - Batch 1: 10/10 tasks ✓
+    - Batch 2: 10/10 tasks ✓ (if applicable)
+    - ... (all batches)
+    ✓ Wave 1 complete: [N]/[N] (100% coverage)
     
   Wave 2 (Backend Repositories): [M] tasks
-    - Tasks in wave: [M]
-    - Sub-batches: [1 if M<=10, else ceil(M/10)]
-    - Sub-batch processing details...
-    - Total completed: [M]/[M]
-    ✓ Wave 2 coverage: 100%
+    - Batches: [B] batches
+    - Batch processing details...
+    ✓ Wave 2 complete: [M]/[M] (100% coverage)
     
   Wave 3 (Backend Services): [K] tasks
-    - Tasks in wave: [K]
-    - Sub-batches: [1 if K<=10, else ceil(K/10)]
-    - Sub-batch processing details...
-    - Total completed: [K]/[K]
-    ✓ Wave 3 coverage: 100%
+    - Batches: [B] batches
+    - Batch 1: 10/10 tasks ✓
+    - Batch 2: 10/10 tasks ✓
+    - Batch 3: 7/7 tasks ✓
+    ✓ Wave 3 complete: [K]/[K] (100% coverage)
     
-  Wave 4 (Backend APIs): [L] tasks - COMPLETED
-  Wave 5 (Frontend Basic Components): [P] tasks - COMPLETED
-  Wave 6 (Frontend API Components): [Q] tasks - COMPLETED
-  Wave 7 (Frontend Pages): [R] tasks - COMPLETED
-  Wave 8 (Integration Tests): [S] tests - COMPLETED
+  Wave 4 (Backend APIs): [L] tasks
+    - Batches and completion details...
+    ✓ Wave 4 complete: [L]/[L] (100% coverage)
+    
+  Wave 5 (Frontend Basic Components): [P] tasks
+    ✓ Wave 5 complete: [P]/[P] (100% coverage)
+    
+  Wave 6 (Frontend API Components): [Q] tasks
+    ✓ Wave 6 complete: [Q]/[Q] (100% coverage)
+    
+  Wave 7 (Frontend Pages): [R] tasks
+    ✓ Wave 7 complete: [R]/[R] (100% coverage)
+    
+  Wave 8 (Integration Tests): [S] tests
+    ✓ Wave 8 complete: [S]/[S] (100% coverage)
 
-✓ ALL WAVES: 100% task coverage (no tasks skipped)
+✓ ALL WAVES: Serial execution with batched parallelism, 100% task coverage
+✓ Total execution: [T] tasks across [M] waves
 
 Cross-Stack Integration:
   ✓ API contracts validated: [N] integrations
@@ -415,12 +457,16 @@ Test Coverage:
   Frontend: [Y]% (target: >80%)
 
 Parallel Execution Verification:
-  ✓ All waves executed with full parallelization
-  ✓ No sequential processing detected
-  ✓ Worker pool utilized efficiently
-  Average tasks per wave: [N]
+  ✓ Waves executed serially (respecting dependencies)
+  ✓ Batches within waves executed serially
+  ✓ Tasks within batches executed in parallel
+  ✓ Worker pool utilized efficiently (workers=[N])
+  ✓ No tasks skipped, 100% coverage
   Total waves: [M]
   Total tasks: [T]
+  Average wave size: [N] tasks
+  Average batch size: ~10 tasks
+  Execution model: Serial waves → Serial batches → Parallel tasks
   
 Failed Tasks (if any):
   [List of failed tasks with reasons]
@@ -640,21 +686,23 @@ Generated: [TIMESTAMP]
 ```
 
 ## Important Rules
-- **CRITICAL**: Create ALL subagents for each wave at once (parallel, not sequential)
-- **NO PARTIAL PROCESSING**: Every task in a wave MUST have a subagent created
-- **Verify counts**: Tasks in wave = Subagents created = Tasks completed
+- **CRITICAL**: Waves execute SERIALLY (one at a time, respecting dependencies)
+- **BATCHING**: Within each wave, divide tasks into batches of max 10 tasks
+- **BATCH PARALLELISM**: Within each batch, ALL tasks execute in PARALLEL
+- **BATCH COMPLETION**: Wait for current batch to complete before starting next batch
+- **WAVE COMPLETION**: Wait for current wave to complete before starting next wave
+- **Verify counts**: For each batch, tasks in batch = subagents created = tasks completed
 - Use @backend-developer for all backend tasks (API, Service, Repository, Validation, Utility layers)
 - Use @frontend-developer for all frontend tasks (Pages and Components)
-- Backend APIs must complete before dependent frontend components
-- Follow dependency graph strictly (from build-deps-fullstack)
-- Worker limit controls concurrent execution, NOT how many subagents to create
+- Dependencies are managed by execution_order (from build-deps-fullstack)
+- Worker limit controls concurrent execution within each batch
 - Save state after each wave completion
 - Verify all tests pass before marking tasks complete
 - Generate comprehensive cross-stack integration report
 - Verify frontend components match wireframe designs
 - Ensure all API contracts are validated
 - Update task_registry.json after each wave
-- Report 100% wave coverage in output summary
+- Report 100% task coverage across all waves and batches
 ```
 
 ## Important Rules
