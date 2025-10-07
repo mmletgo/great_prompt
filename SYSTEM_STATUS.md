@@ -708,5 +708,208 @@ designs/                # 设计产物
 - ✅ 提供明确的完整性审计轨迹
 
 ---
+
+### 2025-10-07 (补充8) - 防止拆解不充分和二次偷懒
+
+#### 问题（新发现的严重问题）
+实际使用中发现AI有两种新的偷懒方式：
+1. **拆解不充分**：应该拆到120个组件，却只拆到59个任务就停止
+   - Page级别任务没有继续拆解到Component级别
+   - 说"这个页面比较简单"就不拆了
+   - 导致大量组件缺失
+
+2. **使用禁用短语绕过检查**：即使有CRITICAL警告，仍然说：
+   - "选择一些关键组件来生成上下文"
+   - "由于组件数量很多，我将选择..."
+   - "让我启动多个代理处理核心组件"
+   - 实际只处理了一小部分
+
+#### 修复
+
+**1. 强化步骤2：确保完整拆解**
+在 `continue-decompose-frontend.md` 和 `continue-decompose-backend.md` 添加：
+```markdown
+**CRITICAL - COMPLETE DECOMPOSITION REQUIRED**:
+- You MUST decompose ALL non-component/function tasks
+- DO NOT leave any task at module or page/service level
+- DO NOT mark page/service as "complete" without decomposing
+- Every page MUST be decomposed into components (minimum 5-10)
+- Every service MUST be decomposed into functions (minimum 5-10)
+- If seems "simple", still has components/functions
+- DO NOT skip decomposition
+```
+
+**2. 添加FORBIDDEN PHRASES列表**（步骤5）：
+明确列出禁止使用的短语，并说明后果：
+```markdown
+**FORBIDDEN PHRASES** (if you use any of these, you are doing it wrong):
+- ❌ "select some components/functions"
+- ❌ "key/core/critical/important items"
+- ❌ "start with the main items"
+- ❌ "prioritize essential items"
+- ❌ "first batch of items"
+- ❌ "due to large number, I will..."
+- ✅ ONLY ACCEPTABLE: "ALL" / "EVERY" / "100% coverage"
+```
+
+**3. 提高数量限制说明**：
+```markdown
+- If batch has 50 tasks → create 50 subagents
+- If batch has 100+ tasks → create 100+ subagents
+- There is NO upper limit
+- System can handle any number of parallel subagents
+- Cannot handle all = system error, NOT reason to select subset
+```
+
+#### 影响文件
+- `continue-decompose-frontend.md`（步骤2和步骤5增强）
+- `continue-decompose-backend.md`（步骤2和步骤5增强）
+
+#### 结果
+- ✅ 禁止在Page/Service级别就停止拆解
+- ✅ 强制每个Page拆成5-10+个Component
+- ✅ 强制每个Service拆成5-10+个Function
+- ✅ 明确列出禁用短语，任何选择性处理的表述都被禁止
+- ✅ 明确说明系统可以处理100+并发subagent
+- ✅ 确保任务数量符合预期（120个组件 → 120个任务）
+- ✅ 防止"简单页面/服务"借口
+
+---
+
+### 2025-10-07 (补充9) - 改进为分批次并行处理（降低复杂度）
+
+#### 问题
+虽然添加了强制100%覆盖机制，但一次性并行处理大量任务（如100+个）仍可能导致：
+1. AI 难以管理超大规模并行任务
+2. 更容易找借口偷懒（"太多了，处理不了"）
+3. 缺少中间验证点，难以追踪进度
+
+#### 解决方案：分批次并行 + 强制完成所有批次
+
+**核心思想**：
+- ✅ 保留"必须处理所有任务"的强制要求
+- ✅ 改为每次最多10个subagent并行
+- ✅ 但必须完成所有批次（不允许只做第一批）
+- ✅ 每批次有明确的进度报告和验证
+
+**新的批次并行模型**：
+```markdown
+**CRITICAL - BATCHED PARALLEL PROCESSING (NO SKIPPING)**:
+- Process in sub-batches of maximum 10 subagents at a time
+- Count total tasks FIRST, calculate number of sub-batches needed
+- Process ALL sub-batches - DO NOT stop after first sub-batch
+- Each sub-batch must complete before starting next sub-batch
+
+Batching Rules:
+1. Count total: component_count / function_count / page_count / wave_task_count
+2. Calculate batches: num_batches = ceil(count / 10)
+3. Process each batch sequentially, within batch create all 10 simultaneously
+4. Track: "Processing batch X of Y (10 items)..."
+5. Verify: After ALL batches, confirm total matches
+```
+
+**示例：25个组件任务**
+```
+Total component tasks: 25
+Sub-batches needed: 3 (10 + 10 + 5)
+
+Processing sub-batch 1 of 3 (10 components)...
+  Creating 10 ContextGenerator subagents in parallel:
+  - frontend_task_008 (LoginForm)
+  - frontend_task_009 (EmailInput)
+  ... (10 total)
+  ✓ Sub-batch 1 complete: 10/10 contexts
+
+Processing sub-batch 2 of 3 (10 components)...
+  ✓ Sub-batch 2 complete: 10/10 contexts
+
+Processing sub-batch 3 of 3 (5 components)...
+  ✓ Sub-batch 3 complete: 5/5 contexts
+
+✓ ALL batches complete: 25/25 contexts (100% coverage)
+```
+
+**禁止的偷懒行为**：
+- ❌ "Processing first batch, skipping remaining"
+- ❌ "Starting with batch 1, will continue later"
+- ❌ "Key items in batch 1, others optional"
+- ✅ REQUIRED: "ALL X batches processed" / "100% coverage"
+
+**验证要求（每批次）**：
+```markdown
+Verification Required:
+1. Count total tasks
+2. Calculate sub-batches: ceil(count / 10)
+3. For each sub-batch (1 to num_batches):
+   - Output: "Processing sub-batch {i} of {num_batches}..."
+   - Create up to 10 subagents
+   - Confirm: "✓ Sub-batch {i} complete: {size}/{size}"
+4. Final: "✓ ALL {num_batches} batches complete: {count}/{count} (100%)"
+```
+
+**输出报告格式**：
+```markdown
+Context/Wireframe/Task Generation Verification:
+  - Total items: [N]
+  - Sub-batches processed: [X] (max 10 per batch)
+  - Sub-batch 1: 10/10 ✓
+  - Sub-batch 2: 10/10 ✓
+  - Sub-batch 3: [Y]/[Y] ✓
+  - Total: [N]/[N]
+  ✓ ALL sub-batches complete (100% coverage)
+```
+
+#### 影响文件（4个关键命令全部更新）
+1. **`continue-decompose-frontend.md`** - 步骤5完全重写为批次模式
+2. **`continue-decompose-backend.md`** - 步骤5完全重写为批次模式
+3. **`generate-wireframes.md`** - 步骤3完全重写为批次模式
+4. **`parallel-dev-fullstack.md`** - 步骤2.2重写为批次模式（Wave内分批）
+
+#### 各命令的批次处理特点
+
+**1. continue-decompose-frontend/backend (Context生成)**:
+- 场景：批次内可能有25个组件/函数需要生成context
+- 处理：3个sub-batch (10+10+5)
+- 验证：每个sub-batch独立验证，最后总验证
+
+**2. generate-wireframes (线框图生成)**:
+- 场景：可能有23个页面需要生成线框图
+- 处理：3个sub-batch (10+10+3)
+- 验证：每个sub-batch独立验证，最后总验证
+
+**3. parallel-dev-fullstack (Wave内开发)**:
+- 场景：Wave 3可能有27个后端服务函数
+- 处理：3个sub-batch (10+10+7)
+- 特殊：Wave间串行，Wave内分批并行
+- 验证：每个sub-batch独立验证，Wave总验证
+
+#### 优势
+- ✅ 降低单次并行复杂度（10个 vs 100个）
+- ✅ AI 更容易管理和追踪
+- ✅ 提供清晰的进度报告（batch 1 of 10）
+- ✅ 每批次验证点，早期发现问题
+- ✅ 仍然强制100%覆盖（必须完成所有批次）
+- ✅ 减少"太多处理不了"的借口空间
+- ✅ 更容易调试（定位到具体批次）
+- ✅ 适用于所有批量处理场景
+
+#### 结果
+- ✅ 25个任务 → 3批次（10+10+5），每批次清晰验证
+- ✅ 100个任务 → 10批次，逐批处理，全部验证
+- ✅ 保持强制100%覆盖要求
+- ✅ 提供更细粒度的进度追踪
+- ✅ 大幅降低AI偷懒的可能性
+- ✅ 统一所有命令的批次处理模式
+
+#### 数据对比
+
+| 任务数 | 批次数 | 单批大小 | 总验证点 |
+|-------|-------|---------|---------|
+| 8个   | 1批次  | 8个      | 2个（开始+结束） |
+| 25个  | 3批次  | 10+10+5  | 4个（开始+3批次） |
+| 50个  | 5批次  | 10×5     | 6个（开始+5批次） |
+| 100个 | 10批次 | 10×10    | 11个（开始+10批次） |
+
+---
 **最后更新**: 2025-10-07  
 **状态**: ✅ 系统就绪

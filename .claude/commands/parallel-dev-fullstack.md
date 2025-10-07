@@ -29,20 +29,63 @@ Determine task types in current wave:
 
 #### 2.2 Create Developer Subagents
 
-**CRITICAL - PARALLEL EXECUTION REQUIRED**:
-- You MUST create developer subagents for ALL tasks in the current wave simultaneously
-- Count wave tasks FIRST, then verify you created exactly that many subagents
-- DO NOT process tasks sequentially ("one by one", "in order", "step by step")
-- DO NOT split wave into sub-batches ("first 5", "core tasks", "important ones")
-- ALL tasks in a wave are independent and MUST run in parallel
-- If wave has 15 tasks → create 15 subagents at once (regardless of worker limit)
-- Worker limit controls concurrent execution, NOT subagent creation
+**CRITICAL - BATCHED PARALLEL EXECUTION WITHIN WAVE**:
+- You MUST create developer subagents for ALL tasks in the current wave
+- If wave has more than 10 tasks, process in sub-batches of maximum 10 subagents
+- Count wave tasks FIRST, calculate number of sub-batches needed
+- Process ALL sub-batches within the wave - DO NOT skip any sub-batch
+- Each sub-batch must complete before starting next sub-batch within the wave
+- ALL tasks in a wave MUST be processed (100% wave coverage)
+
+**Batching Rules for Large Waves**:
+1. Count tasks in wave: `wave_task_count = tasks in current wave`
+2. If wave_task_count <= 10: Create all subagents at once
+3. If wave_task_count > 10: 
+   - Calculate sub-batches: `num_batches = ceil(wave_task_count / 10)`
+   - Process each sub-batch sequentially, within sub-batch create all subagents simultaneously
+   - Track: "Wave [N], sub-batch X of Y (10 tasks)..."
+4. Verify: After processing wave, confirm all tasks completed
+
+**Example - Wave 3 has 27 tasks**:
+```
+Wave 3: Backend Service Layer (27 tasks)
+Sub-batches needed: 3 (10 + 10 + 7)
+
+Wave 3, sub-batch 1 of 3 (10 tasks)...
+  Creating 10 developer subagents in parallel:
+  - backend_task_020 (@backend-developer) - validateUserCredentials
+  - backend_task_021 (@backend-developer) - hashPassword
+  ... (10 total)
+  
+  Executing with worker pool (5 concurrent):
+  [Running] 020, 021, 022, 023, 024
+  [Queued]  025-029
+  ✓ Sub-batch 1 complete: 10/10 tasks
+
+Wave 3, sub-batch 2 of 3 (10 tasks)...
+  ✓ Sub-batch 2 complete: 10/10 tasks
+
+Wave 3, sub-batch 3 of 3 (7 tasks)...
+  ✓ Sub-batch 3 complete: 7/7 tasks
+
+✓ Wave 3 complete: 27/27 tasks (100% coverage)
+```
+
+**FORBIDDEN - PARTIAL WAVE PROCESSING**:
+- ❌ "Processing first sub-batch, skipping remaining in wave"
+- ❌ "Core tasks in sub-batch 1, others optional"
+- ✅ REQUIRED: "ALL sub-batches in wave processed" / "100% wave coverage"
 
 **Verification Required**:
 1. Count tasks in current wave: `wave_task_count = tasks in wave [N]`
-2. Create subagents: MUST equal `wave_task_count`
-3. Output: "Wave [N]: Creating {wave_task_count} developer subagents in parallel..."
-4. Confirm: "✓ All {wave_task_count} tasks completed"
+2. Determine batching:
+   - If wave_task_count <= 10: Single batch
+   - If wave_task_count > 10: Calculate `num_batches = ceil(wave_task_count / 10)`
+3. For each sub-batch (if applicable):
+   - Output: "Wave [N], sub-batch {i} of {num_batches} ({size} tasks)..."
+   - Create up to 10 subagents per sub-batch
+   - Confirm: "✓ Sub-batch {i} complete: {size}/{size} tasks"
+4. Final wave verification: "✓ Wave [N] complete: {wave_task_count}/{wave_task_count} tasks (100% coverage)"
 
 **For backend tasks:**
 ```
@@ -326,21 +369,25 @@ Frontend Development:
 Execution Timeline:
   Wave 1 (Backend Utils + Shared Components): [N] tasks
     - Tasks in wave: [N]
-    - Subagents created: [N]
-    - Tasks completed: [N]
-    ✓ Wave coverage: 100%
+    - Sub-batches: [1 if N<=10, else ceil(N/10)]
+    - Sub-batch 1: 10/10 tasks ✓ (if applicable)
+    - Sub-batch 2: [X]/[X] tasks ✓ (if applicable)
+    - Total completed: [N]/[N]
+    ✓ Wave 1 coverage: 100%
     
   Wave 2 (Backend Repositories): [M] tasks
     - Tasks in wave: [M]
-    - Subagents created: [M]
-    - Tasks completed: [M]
-    ✓ Wave coverage: 100%
+    - Sub-batches: [1 if M<=10, else ceil(M/10)]
+    - Sub-batch processing details...
+    - Total completed: [M]/[M]
+    ✓ Wave 2 coverage: 100%
     
   Wave 3 (Backend Services): [K] tasks
     - Tasks in wave: [K]
-    - Subagents created: [K]
-    - Tasks completed: [K]
-    ✓ Wave coverage: 100%
+    - Sub-batches: [1 if K<=10, else ceil(K/10)]
+    - Sub-batch processing details...
+    - Total completed: [K]/[K]
+    ✓ Wave 3 coverage: 100%
     
   Wave 4 (Backend APIs): [L] tasks - COMPLETED
   Wave 5 (Frontend Basic Components): [P] tasks - COMPLETED

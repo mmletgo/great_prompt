@@ -32,30 +32,73 @@ Ensure `designs/wireframes/` directory exists.
 
 ### 3. Generate Wireframes for All Pages
 
-**CRITICAL - NO PARTIAL PROCESSING**:
+**CRITICAL - BATCHED PARALLEL PROCESSING (NO SKIPPING)**:
 - You MUST create WireframeDesigner subagents for EVERY SINGLE page from step 1
-- Count total pages FIRST, then verify you created exactly that many subagents
-- DO NOT split into "first batch" / "core pages" / "remaining pages"
-- DO NOT process only "important" pages - ALL pages are equally important
-- If you have 20 pages → create 20 subagents simultaneously
-- If you cannot handle all pages at once, that indicates a system error
+- Process in sub-batches of maximum 10 subagents at a time for manageability
+- Count total pages FIRST, calculate number of sub-batches needed
+- Process ALL sub-batches - DO NOT stop after first sub-batch
+- Each sub-batch must complete before starting next sub-batch
+
+**Batching Rules**:
+1. Count total: `page_count = total unique pages from user-flows.md`
+2. Calculate batches: `num_batches = ceil(page_count / 10)`
+3. Process each batch sequentially, but within each batch create all 10 subagents simultaneously
+4. Track progress: "Processing batch X of Y (10 pages)..."
+5. Verify completion: After ALL batches, confirm total = page_count
+
+**Example - 23 pages**:
+```
+Total pages: 23
+Sub-batches needed: 3 (10 + 10 + 3)
+
+Processing sub-batch 1 of 3 (10 pages)...
+  Creating 10 WireframeDesigner subagents in parallel:
+  - Login Page → designs/wireframes/login-page.md
+  - Signup Page → designs/wireframes/signup-page.md
+  - Dashboard → designs/wireframes/dashboard.md
+  ... (10 total)
+  ✓ Sub-batch 1 complete: 10/10 wireframes generated
+
+Processing sub-batch 2 of 3 (10 pages)...
+  Creating 10 WireframeDesigner subagents in parallel:
+  - Profile → designs/wireframes/profile.md
+  - Settings → designs/wireframes/settings.md
+  ... (10 total)
+  ✓ Sub-batch 2 complete: 10/10 wireframes generated
+
+Processing sub-batch 3 of 3 (3 pages)...
+  Creating 3 WireframeDesigner subagents in parallel:
+  - Admin Panel → designs/wireframes/admin-panel.md
+  - Reports → designs/wireframes/reports.md
+  - Help → designs/wireframes/help.md
+  ✓ Sub-batch 3 complete: 3/3 wireframes generated
+
+✓ ALL batches complete: 23/23 wireframes generated (100% coverage)
+```
+
+**FORBIDDEN - PARTIAL BATCH PROCESSING**:
+- ❌ "Processing first batch, skipping remaining pages"
+- ❌ "Starting with batch 1, will continue later"
+- ❌ "Core pages in batch 1, others optional"
+- ✅ REQUIRED: "ALL X batches processed" / "100% coverage across all batches"
 
 **Verification Required**:
 1. Count pages: `page_count = total unique pages from user-flows.md`
-2. Create subagents: MUST equal `page_count`
-3. Output: "Creating {page_count} WireframeDesigner subagents in parallel..."
-4. Confirm: "✓ All {page_count} wireframe files generated"
+2. Calculate sub-batches: `num_batches = ceil(page_count / 10)`
+3. For each sub-batch (1 to num_batches):
+   - Output: "Processing sub-batch {i} of {num_batches} ({size} pages)..."
+   - Create subagents: up to 10 per sub-batch
+   - Confirm: "✓ Sub-batch {i} complete: {size}/{size} wireframes generated"
+4. Final verification: "✓ ALL {num_batches} batches complete: {page_count}/{page_count} wireframes (100% coverage)"
 
-**Important**: Create subagent tasks for ALL pages at once to enable parallel processing.
+**Important**: Process pages in sub-batches of 10 for parallel processing.
 
-#### 3.1 Create All WireframeDesigner Subagents in Parallel
+#### 3.1 Create WireframeDesigner Subagents in Sub-Batches
 
-For the complete list of pages from step 1, create subagent tasks for all pages simultaneously:
+For the complete list of pages from step 1, process in sub-batches of up to 10 pages:
 
 ```
-Create WireframeDesigner subagents for ALL pages in parallel.
-
-For each page in the list:
+For each sub-batch of up to 10 pages:
 
 <subagent_task>
 Agent: @wireframe-designer
@@ -118,17 +161,8 @@ Output format: Create designs/wireframes/[page-name].md with:
 </subagent_task>
 ```
 
-**Example**: If you have 8 pages (Login, Signup, Dashboard, Profile, Settings, Products, Cart, Checkout), create 8 subagent tasks simultaneously:
-- Subagent 1: Login Page → designs/wireframes/login-page.md
-- Subagent 2: Signup Page → designs/wireframes/signup-page.md
-- Subagent 3: Dashboard → designs/wireframes/dashboard.md
-- Subagent 4: Profile → designs/wireframes/profile.md
-- Subagent 5: Settings → designs/wireframes/settings.md
-- Subagent 6: Products → designs/wireframes/products.md
-- Subagent 7: Cart → designs/wireframes/cart.md
-- Subagent 8: Checkout → designs/wireframes/checkout.md
-
-**Wait for ALL subagents to complete before proceeding to step 4.**
+**Wait for current sub-batch to complete before proceeding to next sub-batch.**
+**Wait for ALL sub-batches to complete before proceeding to step 4.**
 
 ### 4. Validate Wireframes Quality
 
@@ -275,23 +309,32 @@ Print:
 ```
 Generating wireframes for [N] pages...
 
-=== Page Count Verification ===
+=== Page Count and Batch Planning ===
 Pages identified from user-flows.md: [N]
-WireframeDesigner subagents to create: [N]
-✓ Count verified - proceeding with parallel generation
+Sub-batches needed: [X] (max 10 pages per batch)
+✓ Planning verified - proceeding with batched parallel generation
 
-Creating [N] wireframe-designer subagents in parallel...
-✓ [Page 1]: designs/wireframes/page-1.md
-✓ [Page 2]: designs/wireframes/page-2.md
-✓ [Page 3]: designs/wireframes/page-3.md
-...
-✓ [Page N]: designs/wireframes/page-n.md
+Processing sub-batch 1 of [X] (10 pages)...
+  Creating 10 WireframeDesigner subagents in parallel:
+  ✓ [Page 1]: designs/wireframes/page-1.md
+  ✓ [Page 2]: designs/wireframes/page-2.md
+  ... (10 total)
+  ✓ Sub-batch 1 complete: 10/10 wireframes
+
+Processing sub-batch 2 of [X] (10 pages)...
+  ✓ Sub-batch 2 complete: 10/10 wireframes
+
+... (all sub-batches)
+
+Processing sub-batch [X] of [X] ([Y] pages)...
+  ✓ Sub-batch [X] complete: [Y]/[Y] wireframes
 
 === Wireframe Generation Complete ===
 Total pages: [N]
-✓ Generated: [N]
+✓ Sub-batches processed: [X]
+✓ Wireframes generated: [N]
 ✗ Failed: [0]
-✓ Coverage: 100% (all pages processed)
+✓ Coverage: 100% (all pages processed across all batches)
 
 === Validation Results ===
 Running comprehensive validation...

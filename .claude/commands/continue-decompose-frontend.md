@@ -20,6 +20,13 @@ Get next 5-10 pending tasks.
 ### 2. Process Each Frontend Task
 For each task in batch:
 
+**CRITICAL - COMPLETE DECOMPOSITION REQUIRED**:
+- You MUST decompose ALL non-component tasks to component level
+- DO NOT leave any task at module or page level
+- DO NOT mark page tasks as "complete" without decomposing them
+- Every page MUST be decomposed into its individual components
+- If a page seems "simple", it still has components (at minimum: container, content, buttons)
+
 #### If task.type == "component":
 - Mark status as "ready"
 - **Immediately invoke ContextGenerator** (see step 5)
@@ -29,18 +36,21 @@ For each task in batch:
 - Create task for each page in this module
 - Reference corresponding wireframe file
 - Save to task_registry (see step 4)
+- **DO NOT mark module as complete - pages must be decomposed next**
 
 #### If task.type == "page":
-- **Decompose to Component level**
-- Analyze wireframe to identify UI components
-- Create tasks for:
-  - Page container component
-  - Section components
-  - Shared/reusable components
-  - State management (if needed)
-  - API integration (if needed)
+- **MUST Decompose to Component level** (non-negotiable)
+- Analyze wireframe to identify ALL UI components (no matter how small)
+- Create tasks for EVERY component:
+  - Page container component (always required)
+  - Section components (header, main, sidebar, footer)
+  - Shared/reusable components (buttons, inputs, cards)
+  - State management components (if needed)
+  - API integration components (if needed)
+- A "simple" page still has minimum 5-10 components
 - Save to task_registry (see step 4)
 - **For each new component task, invoke ContextGenerator** (see step 5)
+- **DO NOT skip decomposition** - every page must create component tasks
 
 ### 3. Invoke FrontendDecomposer Subagent
 ```
@@ -140,25 +150,67 @@ Example update:
 - Existing component tasks (already at level 3)
 - Newly decomposed component tasks (just created in step 3-4)
 
-**CRITICAL - NO PARTIAL PROCESSING**: 
+**CRITICAL - BATCHED PARALLEL PROCESSING (NO SKIPPING)**:
 - You MUST create ContextGenerator subagents for EVERY SINGLE component task in this batch
-- Count total component tasks FIRST, then verify you created exactly that many subagents
-- DO NOT split into "first batch" / "core components" / "remaining components"
-- DO NOT process only "important" tasks - ALL tasks are equally important
-- If batch has 18 component tasks → create 18 subagents simultaneously
-- If you cannot handle all tasks at once, that indicates a system error
+- Process in sub-batches of maximum 10 subagents at a time for manageability
+- Count total component tasks FIRST, calculate number of sub-batches needed
+- Process ALL sub-batches - DO NOT stop after first sub-batch
+- Each sub-batch must complete before starting next sub-batch
+
+**Batching Rules**:
+1. Count total: `component_count = tasks where level==3 AND type=="component"`
+2. Calculate batches: `num_batches = ceil(component_count / 10)`
+3. Process each batch sequentially, but within each batch create all 10 subagents simultaneously
+4. Track progress: "Processing batch X of Y (10 components)..."
+5. Verify completion: After ALL batches, confirm total = component_count
+
+**Example - 25 component tasks**:
+```
+Total component tasks: 25
+Sub-batches needed: 3 (10 + 10 + 5)
+
+Processing sub-batch 1 of 3 (10 components)...
+  Creating 10 ContextGenerator subagents in parallel:
+  - frontend_task_008 (LoginForm)
+  - frontend_task_009 (EmailInput)
+  - frontend_task_010 (PasswordInput)
+  ... (10 total)
+  ✓ Sub-batch 1 complete: 10/10 contexts generated
+
+Processing sub-batch 2 of 3 (10 components)...
+  Creating 10 ContextGenerator subagents in parallel:
+  - frontend_task_018 (DashboardHeader)
+  - frontend_task_019 (StatsCard)
+  ... (10 total)
+  ✓ Sub-batch 2 complete: 10/10 contexts generated
+
+Processing sub-batch 3 of 3 (5 components)...
+  Creating 5 ContextGenerator subagents in parallel:
+  - frontend_task_028 (SettingsForm)
+  ... (5 total)
+  ✓ Sub-batch 3 complete: 5/5 contexts generated
+
+✓ ALL batches complete: 25/25 contexts generated (100% coverage)
+```
+
+**FORBIDDEN - PARTIAL BATCH PROCESSING**:
+- ❌ "Processing first batch, skipping remaining" 
+- ❌ "Starting with batch 1, will continue later"
+- ❌ "Key components in batch 1, others optional"
+- ✅ REQUIRED: "ALL X batches processed" / "100% coverage across all batches"
 
 **Verification Required**:
 1. Count component tasks: `component_count = tasks where level==3 AND type=="component"`
-2. Create subagents: MUST equal `component_count` 
-3. Output: "Creating {component_count} ContextGenerator subagents in parallel..."
-4. Confirm: "✓ All {component_count} context files generated"
+2. Calculate sub-batches: `num_batches = ceil(component_count / 10)`
+3. For each sub-batch (1 to num_batches):
+   - Output: "Processing sub-batch {i} of {num_batches} ({size} components)..."
+   - Create subagents: up to 10 per sub-batch
+   - Confirm: "✓ Sub-batch {i} complete: {size}/{size} contexts generated"
+4. Final verification: "✓ ALL {num_batches} batches complete: {component_count}/{component_count} contexts (100% coverage)"
 
-**For ALL component-level tasks in the batch, create subagents at once**:
+**For ALL component-level tasks, process in sub-batches of 10**:
 ```
-Create ContextGenerator subagents for ALL component tasks in parallel.
-
-For each component task (level == 3):
+For each sub-batch of up to 10 component tasks:
 
 <subagent_task>
 Agent: @context-generator
@@ -240,14 +292,8 @@ See: designs/wireframes/[page-name].md
 </subagent_task>
 ```
 
-**Example**: If this batch has 5 component-level tasks, create 5 ContextGenerator subagents simultaneously:
-- Subagent 1: frontend_task_008 (LoginForm) → contexts/frontend_task_008_context.md
-- Subagent 2: frontend_task_009 (EmailInput) → contexts/frontend_task_009_context.md
-- Subagent 3: frontend_task_010 (PasswordInput) → contexts/frontend_task_010_context.md
-- Subagent 4: frontend_task_011 (LoginButton) → contexts/frontend_task_011_context.md
-- Subagent 5: frontend_task_012 (ErrorMessage) → contexts/frontend_task_012_context.md
-
-**Wait for ALL context generators to complete before proceeding to step 6.**
+**Wait for current sub-batch to complete before proceeding to next sub-batch.**
+**Wait for ALL sub-batches to complete before proceeding to step 6.**
 
 ### 6. Update Checkpoint
 Save progress after each batch:
@@ -285,9 +331,12 @@ frontend_task_002 (Page: Login):
 
 Context Generation Verification:
   - Component tasks in batch: [X]
-  - ContextGenerator subagents created: [X]
-  - Context files generated: [X]
-  ✓ ALL component tasks have context (100% coverage)
+  - Sub-batches processed: [Y] (max 10 per sub-batch)
+  - Sub-batch 1: 10/10 contexts ✓
+  - Sub-batch 2: 10/10 contexts ✓
+  - Sub-batch 3: 5/5 contexts ✓
+  - Total contexts generated: [X]
+  ✓ ALL sub-batches complete: [X]/[X] contexts (100% coverage)
 
 Updated checkpoint: frontend_task_XXX
 Frontend decomposition: [in_progress | completed]

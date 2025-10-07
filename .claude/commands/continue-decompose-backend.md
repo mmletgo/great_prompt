@@ -18,6 +18,13 @@ Get next 5-10 pending backend tasks.
 
 ### 2. Process Each Backend Task
 
+**CRITICAL - COMPLETE DECOMPOSITION REQUIRED**:
+- You MUST decompose ALL non-function tasks to function level
+- DO NOT leave any task at module or service level
+- DO NOT mark service tasks as "complete" without decomposing them
+- Every service MUST be decomposed into its individual functions
+- If a service seems "simple", it still has functions (at minimum: handler, validator, repository)
+
 #### If task.type == "function":
 - Mark as "ready"
 - **Immediately invoke ContextGenerator** (see step 5)
@@ -26,17 +33,20 @@ Get next 5-10 pending backend tasks.
 - **Decompose to Service level**
 - Create service/controller tasks
 - Save to task_registry (see step 4)
+- **DO NOT mark module as complete - services must be decomposed next**
 
 #### If task.type == "service":
-- **Decompose to Function/Endpoint level**
-- Create tasks for:
+- **MUST Decompose to Function/Endpoint level** (non-negotiable)
+- Create tasks for ALL functions:
   - API endpoints (route handlers)
   - Service layer functions (business logic)
   - Data access functions (repository/ORM)
   - Validation functions
   - Utility functions
+- A "simple" service still has minimum 5-10 functions
 - Save to task_registry (see step 4)
 - **For each new function task, invoke ContextGenerator** (see step 5)
+- **DO NOT skip decomposition** - every service must create function tasks
 
 ### 3. Invoke BackendDecomposer Subagent
 ```
@@ -148,25 +158,70 @@ Example update:
 - Existing function tasks (already at level 3)
 - Newly decomposed function tasks (just created in step 3-4)
 
-**CRITICAL - NO PARTIAL PROCESSING**: 
+**CRITICAL - BATCHED PARALLEL PROCESSING (NO SKIPPING)**:
 - You MUST create ContextGenerator subagents for EVERY SINGLE function task in this batch
-- Count total function tasks FIRST, then verify you created exactly that many subagents
-- DO NOT split into "first batch" / "core functions" / "remaining functions"
-- DO NOT process only "important" tasks - ALL tasks are equally important
-- If batch has 25 function tasks → create 25 subagents simultaneously
-- If you cannot handle all tasks at once, that indicates a system error
+- Process in sub-batches of maximum 10 subagents at a time for manageability
+- Count total function tasks FIRST, calculate number of sub-batches needed
+- Process ALL sub-batches - DO NOT stop after first sub-batch
+- Each sub-batch must complete before starting next sub-batch
+
+**Batching Rules**:
+1. Count total: `function_count = tasks where level==3 AND type=="function"`
+2. Calculate batches: `num_batches = ceil(function_count / 10)`
+3. Process each batch sequentially, but within each batch create all 10 subagents simultaneously
+4. Track progress: "Processing batch X of Y (10 functions)..."
+5. Verify completion: After ALL batches, confirm total = function_count
+
+**Example - 32 function tasks**:
+```
+Total function tasks: 32
+Sub-batches needed: 4 (10 + 10 + 10 + 2)
+
+Processing sub-batch 1 of 4 (10 functions)...
+  Creating 10 ContextGenerator subagents in parallel:
+  - backend_task_010 (loginUser)
+  - backend_task_011 (validateCredentials)
+  - backend_task_012 (findUserByEmail)
+  ... (10 total)
+  ✓ Sub-batch 1 complete: 10/10 contexts generated
+
+Processing sub-batch 2 of 4 (10 functions)...
+  Creating 10 ContextGenerator subagents in parallel:
+  - backend_task_020 (createSession)
+  - backend_task_021 (updateLastLogin)
+  ... (10 total)
+  ✓ Sub-batch 2 complete: 10/10 contexts generated
+
+Processing sub-batch 3 of 4 (10 functions)...
+  ✓ Sub-batch 3 complete: 10/10 contexts generated
+
+Processing sub-batch 4 of 4 (2 functions)...
+  Creating 2 ContextGenerator subagents in parallel:
+  - backend_task_040 (logLoginAttempt)
+  - backend_task_041 (cleanupExpiredSessions)
+  ✓ Sub-batch 4 complete: 2/2 contexts generated
+
+✓ ALL batches complete: 32/32 contexts generated (100% coverage)
+```
+
+**FORBIDDEN - PARTIAL BATCH PROCESSING**:
+- ❌ "Processing first batch, skipping remaining" 
+- ❌ "Starting with batch 1, will continue later"
+- ❌ "Key functions in batch 1, others optional"
+- ✅ REQUIRED: "ALL X batches processed" / "100% coverage across all batches"
 
 **Verification Required**:
 1. Count function tasks: `function_count = tasks where level==3 AND type=="function"`
-2. Create subagents: MUST equal `function_count` 
-3. Output: "Creating {function_count} ContextGenerator subagents in parallel..."
-4. Confirm: "✓ All {function_count} context files generated"
+2. Calculate sub-batches: `num_batches = ceil(function_count / 10)`
+3. For each sub-batch (1 to num_batches):
+   - Output: "Processing sub-batch {i} of {num_batches} ({size} functions)..."
+   - Create subagents: up to 10 per sub-batch
+   - Confirm: "✓ Sub-batch {i} complete: {size}/{size} contexts generated"
+4. Final verification: "✓ ALL {num_batches} batches complete: {function_count}/{function_count} contexts (100% coverage)"
 
-**For ALL function-level tasks in the batch, create subagents at once**:
+**For ALL function-level tasks, process in sub-batches of 10**:
 ```
-Create ContextGenerator subagents for ALL function tasks in parallel.
-
-For each function task (level == 3):
+For each sub-batch of up to 10 function tasks:
 
 <subagent_task>
 Agent: @context-generator
@@ -270,17 +325,8 @@ async function functionName(params): Promise<ReturnType>
 </subagent_task>
 ```
 
-**Example**: If this batch has 8 function-level tasks, create 8 ContextGenerator subagents simultaneously:
-- Subagent 1: backend_task_010 (loginUser) → contexts/backend_task_010_context.md
-- Subagent 2: backend_task_011 (validateCredentials) → contexts/backend_task_011_context.md
-- Subagent 3: backend_task_012 (findUserByEmail) → contexts/backend_task_012_context.md
-- Subagent 4: backend_task_013 (comparePassword) → contexts/backend_task_013_context.md
-- Subagent 5: backend_task_014 (generateJWT) → contexts/backend_task_014_context.md
-- Subagent 6: backend_task_015 (createSession) → contexts/backend_task_015_context.md
-- Subagent 7: backend_task_016 (updateLastLogin) → contexts/backend_task_016_context.md
-- Subagent 8: backend_task_017 (logLoginAttempt) → contexts/backend_task_017_context.md
-
-**Wait for ALL context generators to complete before proceeding to step 6.**
+**Wait for current sub-batch to complete before proceeding to next sub-batch.**
+**Wait for ALL sub-batches to complete before proceeding to step 6.**
 
 ### 6. Update Checkpoint
 Save progress after each batch:
@@ -308,9 +354,12 @@ backend_task_001 (Service: AuthenticationService):
 
 Context Generation Verification:
   - Function tasks in batch: [X]
-  - ContextGenerator subagents created: [X]
-  - Context files generated: [X]
-  ✓ ALL function tasks have context (100% coverage)
+  - Sub-batches processed: [Y] (max 10 per sub-batch)
+  - Sub-batch 1: 10/10 contexts ✓
+  - Sub-batch 2: 10/10 contexts ✓
+  - Sub-batch 3: 7/7 contexts ✓
+  - Total contexts generated: [X]
+  ✓ ALL sub-batches complete: [X]/[X] contexts (100% coverage)
 
 Next command: [/continue-decompose-backend OR /build-deps-fullstack]
 ```
