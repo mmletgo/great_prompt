@@ -33,17 +33,27 @@ designs/                       # Design artifacts (generated)
 {
   "design_phase": {
     "status": "completed",
-    "user_flows_generated": true,
-    "wireframes_count": 8
+    "user_flows_file": "designs/user-flows.md",
+    "wireframes_generated": true,
+    "wireframes_count": 8,
+    "validation_status": "passed",
+    "validation_report": "designs/validation-report.md"
   },
   "decomposition_phase": {
+    "status": "completed",
     "frontend_status": "completed",
     "backend_status": "completed",
-    "last_checkpoint_frontend": "frontend_task_050",
-    "last_checkpoint_backend": "backend_task_030",
+    "last_checkpoint": "backend_task_030",
     "progress": {
-      "frontend_components": 42,
-      "backend_functions": 35
+      "frontend": {
+        "total_modules": 5,
+        "total_pages": 12,
+        "total_components": 42
+      },
+      "backend": {
+        "total_modules": 4,
+        "total_functions": 35
+      }
     }
   },
   "development_phase": {
@@ -52,6 +62,10 @@ designs/                       # Design artifacts (generated)
     "completed_waves": 4,
     "completed_tasks": ["backend_task_001", "frontend_task_001"],
     "failed_tasks": []
+  },
+  "metadata": {
+    "created_at": "2025-01-15T10:00:00Z",
+    "last_updated": "2025-01-20T15:30:00Z"
   }
 }
 ```
@@ -146,9 +160,11 @@ Each task context file follows this structure:
 ## Workflow Phases
 
 ### Phase 1: Design (Read Docs → Generate Design Artifacts)
-1. Read `docs/prd.md`, `docs/fullstack-architecture.md`, `docs/front-end-spec.md`
+1. Read `docs/prd.md` (必需), `docs/fullstack-architecture.md` (可选), `docs/front-end-spec.md` (可选), `docs/back-end-spec.md` (可选)
 2. Generate `designs/user-flows.md` with Mermaid diagrams
 3. Generate `designs/wireframes/` ASCII wireframes for each page
+
+**Status Flow:** `not_started` → `user_flows_completed` → `completed`
 
 **Agents Used:**
 - `@user-flow-designer` - Creates Mermaid user flow diagrams
@@ -159,24 +175,37 @@ Each task context file follows this structure:
 2. Decompose modules to pages
 3. Decompose pages to component level
 
+**Prerequisites:** `design_phase.status == "completed"`
+
+**Status Flow:** `decomposition_phase.frontend_status`: `not_started` → `in_progress` → `completed`
+
 **Agents Used:**
 - `@frontend-decomposer` - Decomposes UI into component hierarchy
-- `@context-generator` - Generates context files for each component
+- `@context-generator` - Generates context files for each component (uses frontend component template)
 
 ### Phase 3: Backend Decomposition (Modules → Services → Functions)
 1. Initialize backend modules from PRD + architecture
 2. Decompose modules to services
 3. Decompose services to function level (API/service/repository/validation/utility layers)
 
+**Prerequisites:** `design_phase.status == "completed"` (前端分解完成是推荐但非必需)
+
+**Status Flow:** `decomposition_phase.backend_status`: `not_started` → `in_progress` → `completed`
+
 **Agents Used:**
 - `@backend-decomposer` - Decomposes services into layered functions
-- `@context-generator` - Generates context files for each function
+- `@context-generator` - Generates context files for each function (uses backend function template)
 
 ### Phase 4: Dependency Analysis (Build Cross-Stack Execution Plan)
 1. Analyze frontend internal dependencies
 2. Analyze backend internal dependencies
 3. Analyze cross-stack dependencies (frontend API calls → backend endpoints)
 4. Create execution waves with topological sort
+
+**Prerequisites:** 
+- `decomposition_phase.frontend_status == "completed"`
+- `decomposition_phase.backend_status == "completed"`
+- All component-level and function-level tasks registered
 
 **Agents Used:**
 - `@fullstack-dependency-analyzer` - Creates optimized execution plan
@@ -208,23 +237,23 @@ Use slash commands defined in .claude/commands/ directory:
 
 **Design Phase:**
 - `/init-design` - Read PRD/architecture/UX docs, generate user flows (Mermaid)
-- `/generate-wireframes` - Generate ASCII wireframes for each page
+- `/generate-wireframes [count]` - Generate ASCII wireframes for each page (optional: specify count)
 
 **Decomposition Phase:**
 - `/init-decompose-frontend` - Initialize frontend module decomposition
-- `/continue-decompose-frontend` - Decompose to component level
+- `/continue-decompose-frontend` - Decompose to component level (resumes from checkpoint)
 - `/init-decompose-backend` - Initialize backend service decomposition
-- `/continue-decompose-backend` - Decompose to function level
+- `/continue-decompose-backend` - Decompose to function level (resumes from checkpoint)
 
 **Dependency Phase:**
-- `/build-deps-fullstack` - Build cross-stack dependency graph
+- `/build-deps-fullstack` - Build cross-stack dependency graph and execution plan
 
 **Development Phase:**
-- `/parallel-dev-fullstack` - Execute parallel fullstack TDD development
+- `/parallel-dev-fullstack [workers]` - Execute parallel fullstack TDD development (default: 5 workers)
 
 **Monitoring:**
-- `/status` - Check project status
-- `/retry` - Retry failed tasks
+- `/status [phase]` - Check project status (optional: specify phase)
+- `/retry [task_id]` - Retry failed tasks (optional: specify task ID)
 
 ## Task Type Hierarchy
 
