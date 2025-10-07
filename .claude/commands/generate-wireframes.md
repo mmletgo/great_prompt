@@ -32,11 +32,30 @@ Ensure `designs/wireframes/` directory exists.
 
 ### 3. Generate Wireframes for All Pages
 
-For each page identified in step 1, invoke the WireframeDesigner subagent:
+**CRITICAL - NO PARTIAL PROCESSING**:
+- You MUST create WireframeDesigner subagents for EVERY SINGLE page from step 1
+- Count total pages FIRST, then verify you created exactly that many subagents
+- DO NOT split into "first batch" / "core pages" / "remaining pages"
+- DO NOT process only "important" pages - ALL pages are equally important
+- If you have 20 pages → create 20 subagents simultaneously
+- If you cannot handle all pages at once, that indicates a system error
 
-#### 3.1 Invoke WireframeDesigner Subagent
+**Verification Required**:
+1. Count pages: `page_count = total unique pages from user-flows.md`
+2. Create subagents: MUST equal `page_count`
+3. Output: "Creating {page_count} WireframeDesigner subagents in parallel..."
+4. Confirm: "✓ All {page_count} wireframe files generated"
+
+**Important**: Create subagent tasks for ALL pages at once to enable parallel processing.
+
+#### 3.1 Create All WireframeDesigner Subagents in Parallel
+
+For the complete list of pages from step 1, create subagent tasks for all pages simultaneously:
+
 ```
-Create a WireframeDesigner subagent for [PageName].
+Create WireframeDesigner subagents for ALL pages in parallel.
+
+For each page in the list:
 
 <subagent_task>
 Agent: @wireframe-designer
@@ -99,7 +118,17 @@ Output format: Create designs/wireframes/[page-name].md with:
 </subagent_task>
 ```
 
-**Note**: Subagents can process multiple pages in parallel. Create all subagent tasks, then wait for completion.
+**Example**: If you have 8 pages (Login, Signup, Dashboard, Profile, Settings, Products, Cart, Checkout), create 8 subagent tasks simultaneously:
+- Subagent 1: Login Page → designs/wireframes/login-page.md
+- Subagent 2: Signup Page → designs/wireframes/signup-page.md
+- Subagent 3: Dashboard → designs/wireframes/dashboard.md
+- Subagent 4: Profile → designs/wireframes/profile.md
+- Subagent 5: Settings → designs/wireframes/settings.md
+- Subagent 6: Products → designs/wireframes/products.md
+- Subagent 7: Cart → designs/wireframes/cart.md
+- Subagent 8: Checkout → designs/wireframes/checkout.md
+
+**Wait for ALL subagents to complete before proceeding to step 4.**
 
 ### 4. Validate Wireframes Quality
 
@@ -246,7 +275,12 @@ Print:
 ```
 Generating wireframes for [N] pages...
 
-Creating wireframe-designer subagents for all pages...
+=== Page Count Verification ===
+Pages identified from user-flows.md: [N]
+WireframeDesigner subagents to create: [N]
+✓ Count verified - proceeding with parallel generation
+
+Creating [N] wireframe-designer subagents in parallel...
 ✓ [Page 1]: designs/wireframes/page-1.md
 ✓ [Page 2]: designs/wireframes/page-2.md
 ✓ [Page 3]: designs/wireframes/page-3.md
@@ -257,6 +291,7 @@ Creating wireframe-designer subagents for all pages...
 Total pages: [N]
 ✓ Generated: [N]
 ✗ Failed: [0]
+✓ Coverage: 100% (all pages processed)
 
 === Validation Results ===
 Running comprehensive validation...
@@ -284,7 +319,8 @@ Next command: /init-decompose-frontend
 ```
 
 ## Important Rules
-- Subagents process pages in parallel (no manual batching needed)
+- **Create ALL wireframe subagents at once for maximum parallelization**
+- Subagents process pages in parallel (no sequential processing)
 - Each wireframe must be in a separate file in `designs/wireframes/`
 - Use consistent naming: lowercase-with-hyphens.md
 - **Index and validation files go in `designs/` (not `designs/wireframes/`)**

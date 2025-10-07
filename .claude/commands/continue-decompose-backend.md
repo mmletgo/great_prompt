@@ -20,11 +20,12 @@ Get next 5-10 pending backend tasks.
 
 #### If task.type == "function":
 - Mark as "ready"
-- Invoke BackendContextGenerator
+- **Immediately invoke ContextGenerator** (see step 5)
 
 #### If task.type == "module":
 - **Decompose to Service level**
 - Create service/controller tasks
+- Save to task_registry (see step 4)
 
 #### If task.type == "service":
 - **Decompose to Function/Endpoint level**
@@ -34,6 +35,8 @@ Get next 5-10 pending backend tasks.
   - Data access functions (repository/ORM)
   - Validation functions
   - Utility functions
+- Save to task_registry (see step 4)
+- **For each new function task, invoke ContextGenerator** (see step 5)
 
 ### 3. Invoke BackendDecomposer Subagent
 ```
@@ -137,27 +140,147 @@ Example update:
 }
 ```
 
-### 5. Invoke Context Generator
+### 5. Invoke Context Generator for Function Tasks (Parallel)
+
+**Trigger condition**: For each task where `level == 3` AND `type == "function"`
+
+**This includes**:
+- Existing function tasks (already at level 3)
+- Newly decomposed function tasks (just created in step 3-4)
+
+**CRITICAL - NO PARTIAL PROCESSING**: 
+- You MUST create ContextGenerator subagents for EVERY SINGLE function task in this batch
+- Count total function tasks FIRST, then verify you created exactly that many subagents
+- DO NOT split into "first batch" / "core functions" / "remaining functions"
+- DO NOT process only "important" tasks - ALL tasks are equally important
+- If batch has 25 function tasks → create 25 subagents simultaneously
+- If you cannot handle all tasks at once, that indicates a system error
+
+**Verification Required**:
+1. Count function tasks: `function_count = tasks where level==3 AND type=="function"`
+2. Create subagents: MUST equal `function_count` 
+3. Output: "Creating {function_count} ContextGenerator subagents in parallel..."
+4. Confirm: "✓ All {function_count} context files generated"
+
+**For ALL function-level tasks in the batch, create subagents at once**:
 ```
-Create a ContextGenerator for function task.
+Create ContextGenerator subagents for ALL function tasks in parallel.
+
+For each function task (level == 3):
 
 <subagent_task>
 Agent: @context-generator
 Input:
-- Task metadata: from decomposer
-- API spec: from PRD
+- Task ID: backend_task_XXX
+- Function metadata: from decomposer output or task_registry
+- API spec: from docs/prd.md
 - Architecture: docs/fullstack-architecture.md
 
+Task:
+1. Read function metadata from task_registry
+2. Extract function requirements:
+   - Function signature
+   - Input parameters and types
+   - Return type
+   - Business logic steps
+   - Database operations
+   - Dependencies
+   - Error cases
+3. Generate comprehensive context file
+
 Output: .claude_tasks/contexts/backend_task_XXX_context.md with:
-- Function signature
-- Request/Response schemas
-- Database operations
-- Business logic steps
-- Error handling
-- Security considerations
-- TDD test cases
+
+# Task XXX: [FunctionName]
+
+## Function Overview
+[Description and purpose]
+
+## Function Specification
+### Function Signature
+```typescript
+async function functionName(params): Promise<ReturnType>
+```
+
+### Input Parameters
+- param1: type - description - validation rules
+- param2: type - description - validation rules
+
+### Return Value
+- type: ReturnType
+- success case: {...}
+- error case: {...}
+
+### HTTP Details (if endpoint)
+- Method: POST/GET/PUT/DELETE
+- Route: /api/resource
+- Status codes: 200, 400, 401, 500
+
+## Business Logic
+1. Step 1: [detailed description]
+2. Step 2: [detailed description]
+3. ...
+
+## Database Operations
+- SELECT from table WHERE condition
+- INSERT into table VALUES (...)
+- UPDATE table SET ... WHERE ...
+
+## Dependencies
+- backend_task_YYY: [what it provides]
+- backend_task_ZZZ: [what it provides]
+
+## Error Handling
+### Error Case 1: [ErrorType]
+- Condition: [when it occurs]
+- HTTP Code: 400
+- Message: "..."
+- Recovery: [how to handle]
+
+## Security Considerations
+- Authentication required: Yes/No
+- Authorization: [required permissions]
+- Input sanitization: [what to sanitize]
+- Rate limiting: [limits]
+
+## Performance
+- Expected response time: <200ms
+- Database indexes needed: [list]
+- Caching strategy: [if any]
+
+## TDD Test Cases
+### Test Case 1: Success Path
+```typescript
+// Test code
+```
+
+### Test Case 2: Validation Error
+```typescript
+// Test code
+```
+
+### Test Case 3: Database Error
+```typescript
+// Test code
+```
+
+## Related Files
+- Target file: src/[layer]/[module]/functionName.ts
+- Test file: src/[layer]/[module]/functionName.test.ts
+- Dependencies: [list of imported files]
 </subagent_task>
 ```
+
+**Example**: If this batch has 8 function-level tasks, create 8 ContextGenerator subagents simultaneously:
+- Subagent 1: backend_task_010 (loginUser) → contexts/backend_task_010_context.md
+- Subagent 2: backend_task_011 (validateCredentials) → contexts/backend_task_011_context.md
+- Subagent 3: backend_task_012 (findUserByEmail) → contexts/backend_task_012_context.md
+- Subagent 4: backend_task_013 (comparePassword) → contexts/backend_task_013_context.md
+- Subagent 5: backend_task_014 (generateJWT) → contexts/backend_task_014_context.md
+- Subagent 6: backend_task_015 (createSession) → contexts/backend_task_015_context.md
+- Subagent 7: backend_task_016 (updateLastLogin) → contexts/backend_task_016_context.md
+- Subagent 8: backend_task_017 (logLoginAttempt) → contexts/backend_task_017_context.md
+
+**Wait for ALL context generators to complete before proceeding to step 6.**
 
 ### 6. Update Checkpoint
 Save progress after each batch:
@@ -182,6 +305,12 @@ backend_task_001 (Service: AuthenticationService):
 
 ✓ Processed [N] tasks
 ✓ [X] functions ready, [Y] services need decomposition
+
+Context Generation Verification:
+  - Function tasks in batch: [X]
+  - ContextGenerator subagents created: [X]
+  - Context files generated: [X]
+  ✓ ALL function tasks have context (100% coverage)
 
 Next command: [/continue-decompose-backend OR /build-deps-fullstack]
 ```

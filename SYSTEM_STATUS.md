@@ -475,5 +475,238 @@ designs/                # 设计产物
 - ✅ 元数据文件与设计产物分离更清晰
 
 ---
+
+### 2025-10-07 (补充4) - 明确 Context 生成触发逻辑
+
+#### 问题
+`continue-decompose-frontend` 和 `continue-decompose-backend` 命令中，context 生成的触发条件不明确：
+- 步骤2提到"If task.type == 'component': Invoke ContextGenerator"
+- 步骤5又说"Invoke Context Generator for Component Tasks"
+- 缺少明确的触发条件和范围说明
+- 容易漏掉生成 context
+
+#### 修复
+1. **明确步骤2的引用关系**：
+   - 前端：明确指出 component 任务调用"see step 5"
+   - 后端：明确指出 function 任务调用"see step 5"
+   - 新拆分的任务也要生成 context
+
+2. **增强步骤5的触发条件**：
+   ```markdown
+   **Trigger condition**: For each task where `level == 3` AND `type == "component|function"`
+   
+   **This includes**:
+   - Existing component/function tasks (already at level 3)
+   - Newly decomposed tasks (just created in step 3-4)
+   ```
+
+3. **详细的 Context 生成规范**：
+   - 前端：完整的组件 context 模板（Props, State, Hooks, Events, API Calls, UI States, TDD Tests, Accessibility）
+   - 后端：完整的函数 context 模板（Function Signature, Parameters, Business Logic, Database Ops, Error Handling, Security, TDD Tests）
+
+4. **强调覆盖范围**：
+   - "Generate context for ALL component/function-level tasks in this batch, not just new ones"
+
+#### 结果
+- ✅ Context 生成触发条件明确：level==3 的所有任务
+- ✅ 包含已存在和新创建的任务
+- ✅ 提供完整的 context 模板规范
+- ✅ 明确批次内所有符合条件的任务都要生成
+- ✅ 减少遗漏，确保每个组件/函数都有完整上下文
+
+---
+
+### 2025-10-07 (补充5) - 明确线框图并行生成逻辑
+
+#### 问题
+`generate-wireframes` 命令虽然提到"Subagents can process multiple pages in parallel"，但缺少明确的并行处理指令：
+- 只说"for each page invoke subagent"（容易理解为串行）
+- 没有说明如何批量创建所有 subagent
+- 缺少等待所有完成的明确指令
+
+#### 修复
+1. **修改步骤3标题和说明**：
+   ```markdown
+   ### 3. Generate Wireframes for All Pages
+   
+   **Important**: Create subagent tasks for ALL pages at once to enable parallel processing.
+   
+   #### 3.1 Create All WireframeDesigner Subagents in Parallel
+   ```
+
+2. **提供明确的并行处理示例**：
+   ```markdown
+   **Example**: If you have 8 pages, create 8 subagent tasks simultaneously:
+   - Subagent 1: Login Page → designs/wireframes/login-page.md
+   - Subagent 2: Signup Page → designs/wireframes/signup-page.md
+   - ...
+   - Subagent 8: Checkout → designs/wireframes/checkout.md
+   
+   **Wait for ALL subagents to complete before proceeding to step 4.**
+   ```
+
+3. **强化 Important Rules**：
+   - "**Create ALL wireframe subagents at once for maximum parallelization**"
+   - "Subagents process pages in parallel (no sequential processing)"
+
+#### 结果
+- ✅ 明确指令：一次性为所有页面创建 subagent
+- ✅ 提供具体示例：8个页面 → 8个并行 subagent
+- ✅ 明确等待时机：所有完成后才进入验证
+- ✅ 最大化并行度，加快线框图生成速度
+
+---
+
+### 2025-10-07 (补充6) - 明确 Context Generator 并行处理逻辑
+
+#### 问题
+`continue-decompose-frontend` 和 `continue-decompose-backend` 命令中的 Context Generator 调用存在串行处理风险：
+- 步骤5说"For each component/function task"（暗示循环/串行）
+- 缺少"一次性创建所有 context generator"的明确指令
+- 批次内可能有5-10个 level 3 任务，应该并行生成所有 context
+
+#### 修复
+1. **修改步骤5标题**：
+   ```markdown
+   ### 5. Invoke Context Generator for Component Tasks (Parallel)
+   ### 5. Invoke Context Generator for Function Tasks (Parallel)
+   ```
+
+2. **添加并行处理指令**：
+   ```markdown
+   **Important**: Create ContextGenerator subagents for ALL component/function tasks 
+   in this batch simultaneously for parallel processing.
+   
+   **For ALL component/function-level tasks in the batch, create subagents at once**:
+   ```
+
+3. **提供具体并行示例**：
+   - **Frontend**：5个组件任务 → 5个并行 ContextGenerator subagent
+     ```
+     - Subagent 1: frontend_task_008 (LoginForm) → contexts/frontend_task_008_context.md
+     - Subagent 2: frontend_task_009 (EmailInput) → contexts/frontend_task_009_context.md
+     - Subagent 3: frontend_task_010 (PasswordInput) → contexts/frontend_task_010_context.md
+     - Subagent 4: frontend_task_011 (LoginButton) → contexts/frontend_task_011_context.md
+     - Subagent 5: frontend_task_012 (ErrorMessage) → contexts/frontend_task_012_context.md
+     ```
+   
+   - **Backend**：8个函数任务 → 8个并行 ContextGenerator subagent
+     ```
+     - Subagent 1: backend_task_010 (loginUser) → contexts/backend_task_010_context.md
+     - Subagent 2: backend_task_011 (validateCredentials) → contexts/backend_task_011_context.md
+     - Subagent 3: backend_task_012 (findUserByEmail) → contexts/backend_task_012_context.md
+     - ... (8个并行)
+     ```
+
+4. **明确等待时机**：
+   - "**Wait for ALL context generators to complete before proceeding to step 6.**"
+
+#### 结果
+- ✅ 明确指令：批次内所有 level 3 任务一次性创建 subagent
+- ✅ 提供具体示例：前端5个、后端8个并行 context 生成
+- ✅ 明确等待时机：所有 context 完成后才继续
+- ✅ 性能提升：批次内5-10个任务从串行（10-20分钟）改为并行（2-3分钟）
+- ✅ 节省时间：每批次节省8-17分钟，整个拆解阶段可节省30-60分钟
+
+---
+
+### 2025-10-07 (补充7) - 防止 AI 偷懒只处理部分任务
+
+#### 问题（严重）
+即使添加了并行处理指令，AI 仍可能"偷懒"：
+- 遇到18个组件时说："我将为第一批核心组件生成上下文"
+- 遇到20个页面时说："我将为前8个核心页面生成线框图"
+- 遇到15个任务的wave时说："先处理5个重要任务"
+- 自行决定只处理"重要"任务，忽略其他任务
+- 缺少强制性验证机制，无法检测不完整处理
+- 可能导致部分任务没有 context/wireframe/实现，后续开发失败
+
+#### 修复
+**修复4个关键命令**：
+- `continue-decompose-frontend.md`
+- `continue-decompose-backend.md`
+- `generate-wireframes.md`
+- `parallel-dev-fullstack.md` **(新增 - 最关键)**
+
+**1. 添加 CRITICAL 强制性要求**（每个命令的关键步骤开头）：
+```markdown
+**CRITICAL - NO PARTIAL PROCESSING**: 
+- You MUST create subagents for EVERY SINGLE task/page/item
+- Count total FIRST, then verify you created exactly that many subagents
+- DO NOT split into "first batch" / "core items" / "important ones"
+- DO NOT process only "important" items - ALL items are equally important
+- If you have N items → create N subagents simultaneously
+- If you cannot handle all at once, that indicates a system error
+```
+
+**2. 添加强制性验证步骤**：
+```markdown
+**Verification Required**:
+1. Count items FIRST: `count = total items to process`
+2. Create subagents: MUST equal `count` 
+3. Output: "Creating {count} subagents in parallel..."
+4. Confirm: "✓ All {count} files/tasks completed"
+```
+
+**3. parallel-dev-fullstack 特殊要求**：
+- **Wave内全量并行**：Wave有15个任务 → 创建15个subagent（不是5个）
+- **Worker limit说明**：workers=5 控制并发执行线程，不控制subagent创建数量
+- **执行模型**：15个subagent + 5 workers = 系统自动调度（5个并发，其余排队）
+- **禁止串行**：不允许"一个接一个"、"按顺序"、"分批次"
+- **具体示例**：
+  ```
+  Wave 3: 12 tasks, workers=5
+  ✓ Create 12 subagents at once (not 5)
+  ✓ System runs 5 concurrently, queues 7
+  ✓ As slots free, queued tasks execute
+  ✓ All 12 complete in parallel model
+  ```
+
+**4. 在输出摘要中添加验证报告**：
+- **Frontend/Backend**: 
+  ```markdown
+  Context Generation Verification:
+    - Tasks in batch: [X]
+    - Subagents created: [X]  ← must match
+    - Context files: [X]       ← must match
+    ✓ ALL tasks have context (100% coverage)
+  ```
+
+- **Wireframes**:
+  ```markdown
+  === Page Count Verification ===
+  Pages identified: [N]
+  Subagents created: [N]  ← must match
+  ✓ Coverage: 100%
+  ```
+
+- **Parallel Dev** (每个wave):
+  ```markdown
+  Wave 1: [N] tasks
+    - Tasks in wave: [N]
+    - Subagents created: [N]  ← must match
+    - Tasks completed: [N]     ← must match
+    ✓ Wave coverage: 100%
+  
+  ✓ ALL WAVES: 100% task coverage (no tasks skipped)
+  ```
+
+#### 影响文件
+- `continue-decompose-frontend.md`（步骤5和步骤8）
+- `continue-decompose-backend.md`（步骤5和步骤7）
+- `generate-wireframes.md`（步骤3和步骤7）
+- `parallel-dev-fullstack.md`（步骤2.2, 2.3, 5和Important Rules）
+
+#### 结果
+- ✅ 强制要求处理 100% 的任务/页面，不允许部分处理
+- ✅ 明确禁止"分批"、"核心"、"重要"等偷懒借口
+- ✅ 要求先计数、后验证，确保数量匹配
+- ✅ 在输出中强制显示验证结果（100% coverage）
+- ✅ parallel-dev 明确区分"创建subagent数量"vs"并发执行数量"
+- ✅ 提供具体并行执行示例（12任务+5workers）
+- ✅ 防止任务/页面遗漏导致后续开发失败
+- ✅ 提供明确的完整性审计轨迹
+
+---
 **最后更新**: 2025-10-07  
 **状态**: ✅ 系统就绪

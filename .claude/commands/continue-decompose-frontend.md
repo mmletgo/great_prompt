@@ -22,12 +22,13 @@ For each task in batch:
 
 #### If task.type == "component":
 - Mark status as "ready"
-- Invoke FrontendContextGenerator
+- **Immediately invoke ContextGenerator** (see step 5)
 
 #### If task.type == "module":
 - **Decompose to Page level**
 - Create task for each page in this module
 - Reference corresponding wireframe file
+- Save to task_registry (see step 4)
 
 #### If task.type == "page":
 - **Decompose to Component level**
@@ -38,6 +39,8 @@ For each task in batch:
   - Shared/reusable components
   - State management (if needed)
   - API integration (if needed)
+- Save to task_registry (see step 4)
+- **For each new component task, invoke ContextGenerator** (see step 5)
 
 ### 3. Invoke FrontendDecomposer Subagent
 ```
@@ -129,21 +132,122 @@ Example update:
 }
 ```
 
-### 5. Invoke Context Generator for Component Tasks
+### 5. Invoke Context Generator for Component Tasks (Parallel)
+
+**Trigger condition**: For each task where `level == 3` AND `type == "component"`
+
+**This includes**:
+- Existing component tasks (already at level 3)
+- Newly decomposed component tasks (just created in step 3-4)
+
+**CRITICAL - NO PARTIAL PROCESSING**: 
+- You MUST create ContextGenerator subagents for EVERY SINGLE component task in this batch
+- Count total component tasks FIRST, then verify you created exactly that many subagents
+- DO NOT split into "first batch" / "core components" / "remaining components"
+- DO NOT process only "important" tasks - ALL tasks are equally important
+- If batch has 18 component tasks → create 18 subagents simultaneously
+- If you cannot handle all tasks at once, that indicates a system error
+
+**Verification Required**:
+1. Count component tasks: `component_count = tasks where level==3 AND type=="component"`
+2. Create subagents: MUST equal `component_count` 
+3. Output: "Creating {component_count} ContextGenerator subagents in parallel..."
+4. Confirm: "✓ All {component_count} context files generated"
+
+**For ALL component-level tasks in the batch, create subagents at once**:
 ```
-Create a ContextGenerator subagent for component task.
+Create ContextGenerator subagents for ALL component tasks in parallel.
+
+For each component task (level == 3):
 
 <subagent_task>
 Agent: @context-generator
 Input:
 - Task ID: frontend_task_XXX
-- Component metadata: from decomposer output
-- Design reference: wireframe file
-- Parent page context
+- Component metadata: from decomposer output or task_registry
+- Design reference: designs/wireframes/[page-name].md
+- Parent page context: from parent task
 
-Output: .claude_tasks/contexts/frontend_task_XXX_context.md
+Task:
+1. Read component metadata from task_registry
+2. Read design reference (wireframe file)
+3. Extract component requirements:
+   - Props and their types
+   - State variables
+   - Hooks needed
+   - API calls
+   - Event handlers
+4. Generate comprehensive context file
+
+Output: .claude_tasks/contexts/frontend_task_XXX_context.md with:
+
+# Task XXX: [ComponentName]
+
+## Component Overview
+[Description from wireframe]
+
+## Component Specification
+### Props
+- prop1: type - description
+- prop2: type - description
+
+### State
+- state1: type - initial value
+
+### Hooks
+- useState: [what state]
+- useEffect: [what side effect]
+
+### Events
+- onClick: [behavior]
+- onChange: [behavior]
+
+### API Calls
+- GET /api/endpoint: [purpose]
+
+## UI States
+- Default state
+- Loading state
+- Error state
+- Success state
+- Empty state
+
+## Parent Context
+[Information from parent page/container]
+
+## Design Reference
+See: designs/wireframes/[page-name].md
+
+## TDD Test Cases
+### Test Case 1: Rendering
+[Test code]
+
+### Test Case 2: User Interaction
+[Test code]
+
+### Test Case 3: API Integration
+[Test code]
+
+## Accessibility
+- ARIA labels
+- Keyboard navigation
+- Screen reader support
+
+## Related Files
+- Target file: src/components/[path]/ComponentName.tsx
+- Test file: src/components/[path]/ComponentName.test.tsx
+- Story file: src/components/[path]/ComponentName.stories.tsx
 </subagent_task>
 ```
+
+**Example**: If this batch has 5 component-level tasks, create 5 ContextGenerator subagents simultaneously:
+- Subagent 1: frontend_task_008 (LoginForm) → contexts/frontend_task_008_context.md
+- Subagent 2: frontend_task_009 (EmailInput) → contexts/frontend_task_009_context.md
+- Subagent 3: frontend_task_010 (PasswordInput) → contexts/frontend_task_010_context.md
+- Subagent 4: frontend_task_011 (LoginButton) → contexts/frontend_task_011_context.md
+- Subagent 5: frontend_task_012 (ErrorMessage) → contexts/frontend_task_012_context.md
+
+**Wait for ALL context generators to complete before proceeding to step 6.**
 
 ### 6. Update Checkpoint
 Save progress after each batch:
@@ -178,6 +282,12 @@ frontend_task_002 (Page: Login):
 
 ✓ Processed [N] tasks in this batch
 ✓ [X] components ready, [Y] tasks need decomposition
+
+Context Generation Verification:
+  - Component tasks in batch: [X]
+  - ContextGenerator subagents created: [X]
+  - Context files generated: [X]
+  ✓ ALL component tasks have context (100% coverage)
 
 Updated checkpoint: frontend_task_XXX
 Frontend decomposition: [in_progress | completed]

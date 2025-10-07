@@ -29,6 +29,21 @@ Determine task types in current wave:
 
 #### 2.2 Create Developer Subagents
 
+**CRITICAL - PARALLEL EXECUTION REQUIRED**:
+- You MUST create developer subagents for ALL tasks in the current wave simultaneously
+- Count wave tasks FIRST, then verify you created exactly that many subagents
+- DO NOT process tasks sequentially ("one by one", "in order", "step by step")
+- DO NOT split wave into sub-batches ("first 5", "core tasks", "important ones")
+- ALL tasks in a wave are independent and MUST run in parallel
+- If wave has 15 tasks → create 15 subagents at once (regardless of worker limit)
+- Worker limit controls concurrent execution, NOT subagent creation
+
+**Verification Required**:
+1. Count tasks in current wave: `wave_task_count = tasks in wave [N]`
+2. Create subagents: MUST equal `wave_task_count`
+3. Output: "Wave [N]: Creating {wave_task_count} developer subagents in parallel..."
+4. Confirm: "✓ All {wave_task_count} tasks completed"
+
 **For backend tasks:**
 ```
 <subagent_task>
@@ -139,9 +154,43 @@ Success criteria:
 ```
 
 #### 2.3 Execute Wave in Parallel
-- Create all developer subagents for tasks in current wave
-- Subagents execute in parallel (up to `workers` limit)
-- Monitor progress and collect results
+
+**Parallel Execution Model**:
+- Create ALL subagent tasks for the wave at once (not sequentially)
+- Subagents execute concurrently (up to `workers` limit controls parallel threads)
+- If wave has 15 tasks and workers=5: create 15 subagents, run 5 at a time
+- System automatically schedules execution based on worker availability
+- Monitor progress and collect results as they complete
+
+**Example**: Wave 3 has 12 backend service functions, workers=5
+```
+Wave 3: Creating 12 developer subagents in parallel...
+
+Subagents created:
+  1. backend_task_020 (@backend-developer) - validateUserCredentials
+  2. backend_task_021 (@backend-developer) - hashPassword
+  3. backend_task_022 (@backend-developer) - generateJWT
+  ... (12 total subagents)
+  12. backend_task_031 (@backend-developer) - updateUserProfile
+
+Executing with worker pool (5 concurrent):
+  [Running] backend_task_020, 021, 022, 023, 024
+  [Queued]  backend_task_025-031
+  
+  ✓ backend_task_020 completed (2.3 min)
+  [Running] backend_task_025 (filled slot)
+  
+  ✓ backend_task_021 completed (2.1 min)
+  [Running] backend_task_026 (filled slot)
+  ...
+  
+✓ All 12 tasks completed
+```
+
+**Verification**:
+- Confirm all wave tasks have subagents created
+- Track completion count matches task count
+- Report any failures immediately
 
 #### 2.4 Verify Wave Results
 For each completed task:
@@ -275,14 +324,31 @@ Frontend Development:
   - Feature Components: [C] components ✓
 
 Execution Timeline:
-  Wave 1 (Backend Utils + Shared Components): [N] tasks - COMPLETED
-  Wave 2 (Backend Repositories): [M] tasks - COMPLETED
-  Wave 3 (Backend Services): [K] tasks - COMPLETED
+  Wave 1 (Backend Utils + Shared Components): [N] tasks
+    - Tasks in wave: [N]
+    - Subagents created: [N]
+    - Tasks completed: [N]
+    ✓ Wave coverage: 100%
+    
+  Wave 2 (Backend Repositories): [M] tasks
+    - Tasks in wave: [M]
+    - Subagents created: [M]
+    - Tasks completed: [M]
+    ✓ Wave coverage: 100%
+    
+  Wave 3 (Backend Services): [K] tasks
+    - Tasks in wave: [K]
+    - Subagents created: [K]
+    - Tasks completed: [K]
+    ✓ Wave coverage: 100%
+    
   Wave 4 (Backend APIs): [L] tasks - COMPLETED
   Wave 5 (Frontend Basic Components): [P] tasks - COMPLETED
   Wave 6 (Frontend API Components): [Q] tasks - COMPLETED
   Wave 7 (Frontend Pages): [R] tasks - COMPLETED
   Wave 8 (Integration Tests): [S] tests - COMPLETED
+
+✓ ALL WAVES: 100% task coverage (no tasks skipped)
 
 Cross-Stack Integration:
   ✓ API contracts validated: [N] integrations
@@ -293,6 +359,14 @@ Test Coverage:
   Backend: [X]% (target: >80%)
   Frontend: [Y]% (target: >80%)
 
+Parallel Execution Verification:
+  ✓ All waves executed with full parallelization
+  ✓ No sequential processing detected
+  ✓ Worker pool utilized efficiently
+  Average tasks per wave: [N]
+  Total waves: [M]
+  Total tasks: [T]
+  
 Failed Tasks (if any):
   [List of failed tasks with reasons]
 
@@ -511,16 +585,21 @@ Generated: [TIMESTAMP]
 ```
 
 ## Important Rules
+- **CRITICAL**: Create ALL subagents for each wave at once (parallel, not sequential)
+- **NO PARTIAL PROCESSING**: Every task in a wave MUST have a subagent created
+- **Verify counts**: Tasks in wave = Subagents created = Tasks completed
 - Use @backend-developer for all backend tasks (API, Service, Repository, Validation, Utility layers)
 - Use @frontend-developer for all frontend tasks (Pages and Components)
 - Backend APIs must complete before dependent frontend components
 - Follow dependency graph strictly (from build-deps-fullstack)
+- Worker limit controls concurrent execution, NOT how many subagents to create
 - Save state after each wave completion
 - Verify all tests pass before marking tasks complete
 - Generate comprehensive cross-stack integration report
 - Verify frontend components match wireframe designs
 - Ensure all API contracts are validated
 - Update task_registry.json after each wave
+- Report 100% wave coverage in output summary
 ```
 
 ## Important Rules
