@@ -262,9 +262,8 @@ Example merged result:
 }
 ```
 
-#### 5.4 Clean Up Temporary Files
-After successful merge:
-- Delete all `.claude_tasks/backend_decomposition_temp/backend_task_*.json` files
+#### 5.4 Temporary File Cleanup Responsibility
+**The deletion of temporary files (.claude_tasks/backend_decomposition_temp/backend_task_*.json) MUST be performed by you only after confirming that all tasks have been successfully merged into task_registry.json. The Python integration script MUST NOT delete temporary files directly.**
 
 ### 6. Invoke Context Generator for Function Tasks (Parallel)
 

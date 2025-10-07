@@ -7,6 +7,13 @@
 ---
 
 ## 📊 系统组成统计
+## 🗂️ 临时文件管理与责任分离
+
+### 临时文件清理责任
+- 前端和后端decomposer生成的临时文件（.claude_tasks/frontend_decomposition_temp/ 和 .claude_tasks/backend_decomposition_temp/）
+- 临时文件的删除操作**仅能由主agent在确认所有任务已成功合并到task_registry.json后统一执行**
+- Python集成脚本**不得直接删除临时文件**，只负责合并和ID分配
+- 这样保证了任务合并的可追溯性和安全性，防止误删和丢失
 
 ### 核心组件
 - **Commands**: 10个
