@@ -48,136 +48,143 @@ Get next 5-10 pending backend tasks.
 - **For each new function task, invoke ContextGenerator** (see step 5)
 - **DO NOT skip decomposition** - every service must create function tasks
 
-### 3. Invoke BackendDecomposer Subagent (Single Call for Entire Batch)
-
-**Important**: Create ONE BackendDecomposer subagent to process ALL tasks in the current batch.
-The decomposer will analyze all tasks and return a complete decomposition result.
-
+### 3. Invoke BackendDecomposer Subagent
 ```
+Create a BackendDecomposer subagent for backend_task_XXX.
+
 <subagent_task>
 Agent: @backend-decomposer
 Input:
-- Batch tasks: [list of all task IDs in current batch]
-- Task details: [for each task: ID, type, title, endpoints, database tables]
+- Task ID: backend_task_XXX
+- Task type: [module/service]
+- API endpoints: from task metadata
+- Database tables: from task metadata
 - Architecture: docs/fullstack-architecture.md
 - Frontend API calls: from frontend task registry
-- PRD reference: docs/prd.md
 
-Task:
-For each task in the batch:
-
-**If task.type == "module":**
-1. Group related endpoints into services/controllers
+Task (if module):
+1. Group related endpoints into services
 2. Identify shared utilities
 3. Create service-level tasks
 
-**If task.type == "service":**
-1. List ALL API endpoints for this service
+Task (if service):
+1. List all API endpoints for this service
 2. For each endpoint, identify:
-   - Route handler function (API layer)
-   - Request validation function
-   - Business logic functions (Service layer)
-   - Data access functions (Repository layer)
+   - Route handler function
+   - Request validation
+   - Business logic functions
+   - Data access functions
    - Response formatting
-3. Identify ALL database operations:
+3. Identify database operations:
    - CRUD functions
    - Complex queries
    - Transactions
-4. Identify middleware/decorators:
+4. Identify middleware/decorators needed:
    - Authentication
    - Authorization
    - Rate limiting
    - Error handling
-5. A "simple" service MUST have minimum 5-10 functions
 
-**If task.type == "function":**
-- Mark as "ready" (no decomposition needed)
+Output format: Save to `.claude_tasks/decomposition_temp/backend_task_XXX.json`
 
-Output format: JSON object with decomposition for ALL batch tasks
+**CRITICAL - Save to temporary file, do NOT return large JSON**:
+```json
 {
-  "backend_task_001": {
-    "original_task": {...},
-    "decomposed": true,
-    "subtasks": [
-      {
-        "id": "backend_task_010",
-        "title": "AuthenticationService",
-        "level": 2,
-        "type": "service",
-        "parent_id": "backend_task_001",
-        "endpoints": ["/api/auth/login", "/api/auth/logout"]
+  "parent_task_id": "backend_task_XXX",
+  "parent_type": "module|service",
+  "subtasks": [
+    {
+      "title": "login_user",
+      "level": 3,
+      "type": "function|service",
+      "function_type": "endpoint|service|repository|validator|util",
+      "http_method": "POST",
+      "route": "/api/auth/login",
+      "function_signature": "async def login_user(credentials: LoginRequest) -> LoginResponse",
+      "input_params": {
+        "email": "string",
+        "password": "string"
       },
-      ...
-    ]
-  },
-  "backend_task_002": {
-    "original_task": {...},
-    "decomposed": true,
-    "subtasks": [
-      {
-        "id": "backend_task_015",
-        "title": "login_user",
-        "level": 3,
-        "type": "function",
-        "function_type": "endpoint",
-        "parent_id": "backend_task_002",
-        "http_method": "POST",
-        "route": "/api/auth/login",
-        "function_signature": "async def login_user(credentials: LoginRequest) -> LoginResponse",
-        "input_params": {
-          "email": "string",
-          "password": "string"
-        },
-        "return_type": "LoginResponse",
-        "database_operations": ["SELECT from users", "INSERT into sessions"],
-        "dependencies": ["validate_email", "hash_password", "generate_jwt"],
-        "error_cases": ["InvalidCredentials", "AccountLocked"]
-      },
-      {
-        "id": "backend_task_016",
-        "title": "validate_credentials",
-        "level": 3,
-        "type": "function",
-        "function_type": "validator",
-        "parent_id": "backend_task_002",
-        ...
-      },
-      ...
-    ]
-  },
-  "backend_task_003": {
-    "original_task": {...},
-    "decomposed": false,
-    "reason": "Already at function level"
+      "return_type": "LoginResponse",
+      "database_operations": ["SELECT from users", "INSERT into sessions"],
+      "dependencies": ["validate_email", "hash_password", "generate_jwt"],
+      "error_cases": ["InvalidCredentials", "AccountLocked"]
+    }
+  ],
+  "summary": {
+    "total_subtasks": 12,
+    "services": 0,
+    "functions": 12,
+    "by_type": {
+      "endpoint": 3,
+      "service": 5,
+      "repository": 2,
+      "validator": 1,
+      "util": 1
+    }
   }
 }
+```
+
+**After saving file, output**: "✓ Saved backend_task_XXX decomposition: 12 functions"
 </subagent_task>
 ```
 
-**Wait for decomposer to complete and return results for ALL batch tasks.**
+### 4. Wait for All Decomposers to Complete
 
-### 4. Save Decomposed Tasks to Registry
-For each task decomposed by the BackendDecomposer:
+**Wait for ALL decomposer subagents from step 3 to finish.**
 
-1. **Add new tasks to `task_registry.json`**:
-   - Append each subtask to the `tasks` object
-   - Update parent task's `children` array
-   - Update parent task's `status` from "pending" to "decomposed"
+Each decomposer saves its results to:
+- `.claude_tasks/decomposition_temp/backend_task_XXX.json`
 
-2. **Update metadata**:
-   - Increment `backend_metadata.total_functions`
-   - Update progress counters
+### 5. Integrate All Decomposition Results
 
-Example update:
+After all decomposers complete:
+
+#### 5.1 Read All Temporary Files
+Read all files from `.claude_tasks/decomposition_temp/backend_task_*.json`
+
+#### 5.2 Assign Task IDs
+For each subtask across all decomposition files:
+1. Get current max task ID from task_registry.json (e.g., backend_task_042)
+2. Assign sequential IDs to new tasks:
+   - backend_task_043, backend_task_044, ...
+3. Build ID mapping for dependencies:
+   - If subtask has `dependencies: ["validate_email", "hash_password"]`
+   - Look up these function names in all decomposition results
+   - Replace with actual task IDs: `["backend_task_045", "backend_task_046"]`
+
+#### 5.3 Merge into task_registry.json
+For each decomposition result:
+1. **Add subtasks to `tasks` object**:
+   - Use assigned IDs from step 5.2
+   - Set `parent_id` to the decomposed task
+   - Set `status` based on type:
+     * `type == "function"` → status = "ready"
+     * `type == "service"` → status = "pending"
+   - Set `category` = "backend"
+   - Resolve dependency references to task IDs
+   - Include all metadata (http_method, route, function_signature, etc.)
+
+2. **Update parent task**:
+   - Set parent's `status` = "decomposed"
+   - Set parent's `children` = [array of new task IDs]
+
+3. **Update metadata counters**:
+   - Increment `backend_metadata.total_services` by services count
+   - Increment `backend_metadata.total_functions` by functions count
+   - Update `by_layer` counters (endpoint, service, repository, etc.)
+
+Example merged result:
 ```json
 {
   "tasks": {
     "backend_task_001": {
       "status": "decomposed",
-      "children": ["backend_task_010", "backend_task_011", "backend_task_012"]
+      "children": ["backend_task_043", "backend_task_044", "backend_task_045"]
     },
-    "backend_task_010": {
-      "id": "backend_task_010",
+    "backend_task_043": {
+      "id": "backend_task_043",
       "title": "loginUser",
       "level": 3,
       "type": "function",
@@ -187,17 +194,31 @@ Example update:
       "parent_id": "backend_task_001",
       "http_method": "POST",
       "route": "/api/auth/login",
-      "dependencies": ["backend_task_011", "backend_task_012"]
+      "dependencies": ["backend_task_044", "backend_task_045"]
     }
   },
   "backend_metadata": {
     "total_modules": 4,
-    "total_functions": 35
+    "total_services": 8,
+    "total_functions": 47,
+    "by_layer": {
+      "endpoint": 12,
+      "service": 18,
+      "repository": 10,
+      "validator": 4,
+      "util": 3
+    }
   }
 }
 ```
 
-### 5. Invoke Context Generator for Function Tasks (Parallel)
+#### 5.4 Clean Up Temporary Files
+After successful merge:
+- Delete all `.claude_tasks/decomposition_temp/backend_task_*.json` files
+
+### 6. Invoke Context Generator for Function Tasks (Parallel)
+
+**After step 5 integration completes**, invoke context generators.
 
 **Trigger condition**: For each task where `level == 3` AND `type == "function"`
 
@@ -240,28 +261,19 @@ Processing sub-batch 1 of 4 (10 functions)...
   ✓ Sub-batch 1 complete: 10/10 contexts generated
 
 Processing sub-batch 2 of 4 (10 functions)...
-  Creating ALL 10 ContextGenerator subagents SIMULTANEOUSLY:
-  
-  <subagent_task>Agent: @context-generator (backend_task_020 - createSession)</subagent_task>
-  <subagent_task>Agent: @context-generator (backend_task_021 - updateLastLogin)</subagent_task>
-  ... [ALL 10 subagent blocks in ONE response]
-  
+  Creating 10 ContextGenerator subagents in parallel:
+  - backend_task_020 (createSession)
+  - backend_task_021 (updateLastLogin)
+  ... (10 total)
   ✓ Sub-batch 2 complete: 10/10 contexts generated
 
 Processing sub-batch 3 of 4 (10 functions)...
-  Creating ALL 10 ContextGenerator subagents SIMULTANEOUSLY:
-  
-  <subagent_task>Agent: @context-generator (backend_task_030)</subagent_task>
-  ... [ALL 10 subagent blocks in ONE response]
-  
   ✓ Sub-batch 3 complete: 10/10 contexts generated
 
 Processing sub-batch 4 of 4 (2 functions)...
-  Creating ALL 2 ContextGenerator subagents SIMULTANEOUSLY:
-  
-  <subagent_task>Agent: @context-generator (backend_task_040 - logLoginAttempt)</subagent_task>
-  <subagent_task>Agent: @context-generator (backend_task_041 - cleanupExpiredSessions)</subagent_task>
-  
+  Creating 2 ContextGenerator subagents in parallel:
+  - backend_task_040 (logLoginAttempt)
+  - backend_task_041 (cleanupExpiredSessions)
   ✓ Sub-batch 4 complete: 2/2 contexts generated
 
 ✓ ALL batches complete: 32/32 contexts generated (100% coverage)
@@ -398,28 +410,40 @@ async function functionName(params): Promise<ReturnType>
 ```
 
 **Wait for current sub-batch to complete before proceeding to next sub-batch.**
-**Wait for ALL sub-batches to complete before proceeding to step 6.**
+**Wait for ALL sub-batches to complete before proceeding to step 7.**
 
-### 6. Update Checkpoint
+### 7. Update Checkpoint
 Save progress after each batch:
 - Update `state.json` with latest checkpoint
 - Save `task_registry.json` with all new tasks
 
-### 7. Output Summary
+### 8. Output Summary
 ```
 Processing backend batch...
 
 backend_task_001 (Service: AuthenticationService):
-  ✓ Decomposed into 12 functions:
-    - login_user (POST /api/auth/login) [endpoint]
-    - validate_credentials (email, password) [validator]
-    - check_account_status (user_id) [service]
-    - generate_access_token (user) [util]
-    - generate_refresh_token (user) [util]
-    - create_session (user_id, token) [repository]
-    - hash_password (password) [util]
-    - compare_password (plain, hashed) [util]
-    ...
+  ✓ Analyzed requirements from architecture doc
+  ✓ Saved to: .claude_tasks/decomposition_temp/backend_task_001.json
+  ✓ Identified 12 functions (3 endpoints, 5 services, 2 repositories, 1 validator, 1 util)
+
+=== Integration Phase (Python Script) ===
+Generated: .claude_tasks/integrate_backend_tasks.py
+Executing integration script...
+
+✓ Integrated backend_task_001.json: 12 functions
+✓ Integrated backend_task_002.json: 8 functions
+✓ Integrated backend_task_003.json: 6 functions
+
+=== Integration Summary ===
+Total new tasks: 26
+New services: 0
+New functions: 26
+By type: {'endpoint': 7, 'service': 11, 'repository': 5, 'validator': 2, 'util': 1}
+Resolved 47 dependencies
+Updated task_registry.json
+Archived 3 temp files
+
+Next available ID: backend_task_069
 
 ✓ Processed [N] tasks
 ✓ [X] functions ready, [Y] services need decomposition

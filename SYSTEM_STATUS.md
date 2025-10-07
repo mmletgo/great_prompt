@@ -1057,119 +1057,281 @@ Response 1: Creating ALL 10 subagents simultaneously:
 
 ---
 
-### 2025-10-07 (补充11) - 修正 Decomposer 调用逻辑（批处理而非并行）
+### 2025-10-07 (补充11) - Decomposer 输出优化：临时文件 + 延迟整合
 
-#### 问题
-步骤3中的 FrontendDecomposer 和 BackendDecomposer 的调用方式不合理：
-- 原设计：为批次中**每个任务**创建一个 decomposer subagent
-- 问题：decomposer 本身不需要并行，它应该一次性处理整个批次
-- 结果：创建多个 decomposer 处理相同类型的任务，效率低且结果可能不一致
+#### 问题（性能瓶颈）
+当前流程中，decomposer subagents 将拆解结果（JSON数据）返回给主 agent：
+1. **数据量大**：一个页面可能拆解出8-15个组件，JSON数据量可达2-5KB
+2. **并行处理困难**：如果5个decomposer并行，主agent需要同时处理5个大JSON响应
+3. **token消耗高**：所有decomposer的输出都在主agent的context中
+4. **容易超时**：主agent需要处理、分配ID、合并到task_registry，逻辑复杂
 
-#### 解决方案
-修改为**单个 Decomposer 处理整个批次**：
-- 只创建 **ONE** decomposer subagent
-- Decomposer 接收批次中的**所有任务**作为输入
-- Decomposer 分析所有任务并**一次性返回**完整的拆解结果
-- 主 agent 接收结果后保存到 task_registry.json
-- 然后再对拆解出的 level-3 任务进行**并行 context 生成**
+#### 解决方案：临时文件 + 批量整合
 
-#### 修改细节
+**新的三阶段流程**：
 
-**修改前（错误）**：
-```markdown
-### 3. Invoke FrontendDecomposer Subagent
-Create a FrontendDecomposer subagent for frontend_task_XXX.
+**阶段1: Decomposer 并行工作（写文件）**
 ```
-→ 暗示为每个任务创建一个 decomposer
+Decomposer subagents 并行工作:
+- frontend_task_001 → decomposer → .claude_tasks/decomposition_temp/frontend_task_001.json
+- frontend_task_002 → decomposer → .claude_tasks/decomposition_temp/frontend_task_002.json
+- frontend_task_003 → decomposer → .claude_tasks/decomposition_temp/frontend_task_003.json
+- ... (5个decomposer并行)
 
-**修改后（正确）**：
-```markdown
-### 3. Invoke FrontendDecomposer Subagent (Single Call for Entire Batch)
+每个decomposer只输出: "✓ Saved frontend_task_XXX decomposition: 8 subtasks"
+```
 
-**Important**: Create ONE FrontendDecomposer subagent to process ALL tasks 
-in the current batch.
+**阶段2: 主Agent 批量整合（Python脚本）**
+```
+主agent生成并运行Python脚本:
 
-<subagent_task>
-Agent: @frontend-decomposer
-Input:
-- Batch tasks: [list of all task IDs in current batch]
-- Task details: [for each task: ID, type, title, wireframe reference]
-...
+1. 生成脚本: .claude_tasks/integrate_frontend_tasks.py
+   - 150行Python代码，完整的整合逻辑
+   - 读取临时文件
+   - 分配ID
+   - 解析依赖（backend）
+   - 更新task_registry.json
+   - 归档临时文件
 
-Output format: JSON object with decomposition for ALL batch tasks
+2. 运行脚本: python .claude_tasks/integrate_frontend_tasks.py
+
+3. 读取输出摘要:
+   Total new tasks: 16
+   New pages: 3
+   New components: 13
+   Updated task_registry.json
+```
+
+**阶段3: Context Generator 并行工作**
+```
+对所有 level==3 的component/function任务:
+- 批量并行调用context-generator（分批，每批10个）
+```
+
+#### 文件格式
+
+**Decomposer 输出文件** (`.claude_tasks/decomposition_temp/frontend_task_XXX.json`):
+```json
 {
-  "frontend_task_001": { "decomposed": true, "subtasks": [...] },
-  "frontend_task_002": { "decomposed": true, "subtasks": [...] },
-  ...
+  "parent_task_id": "frontend_task_002",
+  "parent_type": "page",
+  "subtasks": [
+    {
+      "title": "LoginForm",
+      "level": 3,
+      "type": "component",
+      "component_type": "form",
+      "props": ["onSubmit", "initialValues"],
+      "state": ["email", "password", "errors"],
+      "hooks": ["useState", "useEffect"],
+      "api_calls": ["POST /api/auth/login"]
+    },
+    ... (7 more components)
+  ],
+  "summary": {
+    "total_subtasks": 8,
+    "pages": 0,
+    "components": 8
+  }
 }
-</subagent_task>
 ```
 
-#### 正确的工作流程
-
-**步骤3：Decomposer（单个，批处理）**
-```
-批次任务: [task_001, task_002, task_003, task_004, task_005]
-         ↓
-   ONE FrontendDecomposer
-         ↓
-返回: {
-  task_001: {subtasks: [...]},
-  task_002: {subtasks: [...]},
-  ...
+**Backend 版本** (`.claude_tasks/decomposition_temp/backend_task_XXX.json`):
+```json
+{
+  "parent_task_id": "backend_task_001",
+  "parent_type": "service",
+  "subtasks": [
+    {
+      "title": "login_user",
+      "level": 3,
+      "type": "function",
+      "function_type": "endpoint",
+      "http_method": "POST",
+      "route": "/api/auth/login",
+      "dependencies": ["validate_email", "hash_password"],  // 函数名引用
+      ...
+    },
+    ... (11 more functions)
+  ],
+  "summary": {
+    "total_subtasks": 12,
+    "functions": 12,
+    "by_type": {
+      "endpoint": 3,
+      "service": 5,
+      "repository": 2,
+      "validator": 1,
+      "util": 1
+    }
+  }
 }
 ```
 
-**步骤5：ContextGenerator（并行，分sub-batch）**
+#### 依赖解析（Backend专用 - Python实现）
+
+Backend任务的`dependencies`字段引用函数名，Python脚本自动解析：
+
+**Python脚本的两遍处理**：
+```python
+# 第一遍：收集所有函数名到任务ID的映射
+function_name_to_id = {}
+for decomp_data in all_decomp_data:
+    for subtask in decomp_data['subtasks']:
+        task_id = f"backend_task_{next_id:03d}"
+        function_name_to_id[subtask['title']] = task_id
+        next_id += 1
+
+# 第二遍：替换dependencies中的函数名引用
+resolved_deps = []
+for dep in dependencies:
+    if dep in function_name_to_id:
+        resolved_deps.append(function_name_to_id[dep])
+    else:
+        resolved_deps.append(dep)  # 保留外部依赖
 ```
-拆解出的 level-3 任务: 25个组件
-         ↓
-Sub-batch 1: 10 ContextGenerators (parallel)
-Sub-batch 2: 10 ContextGenerators (parallel)
-Sub-batch 3: 5 ContextGenerators (parallel)
-         ↓
-生成25个 context 文件
+
+**结果示例**：
+```
+修改前: "dependencies": ["validate_email", "hash_password"]
+修改后: "dependencies": ["backend_task_045", "backend_task_046"]
 ```
 
 #### 优势
-- ✅ **Decomposer 效率更高**：一次性处理所有任务，可以识别任务间的关系
-- ✅ **结果一致性**：单个 decomposer 保证命名和结构的一致性
-- ✅ **避免重复工作**：不会多个 decomposer 重复读取相同的 wireframe 文件
-- ✅ **清晰的职责划分**：
-  - Decomposer：任务拆解（批处理，单个）
-  - ContextGenerator：上下文生成（并行，多个）
-- ✅ **减少 subagent 数量**：5个任务 → 1个 decomposer + 25个 context generators
+
+1. **降低主Agent负担**：
+   - Decomposer输出从2-5KB JSON → 简单确认消息
+   - 主agent只需生成Python脚本并运行，不处理数据
+   - 所有复杂逻辑由Python代码实现（可靠、可测试）
+
+2. **真正的并行**：
+   - Decomposer之间完全独立，无需协调
+   - 每个写自己的文件，无冲突
+
+3. **批量优化（Python实现）**：
+   - Python脚本一次性处理所有拆解结果
+   - 统一分配ID，更高效
+   - 统一更新task_registry，减少文件写入次数
+   - 依赖解析逻辑复杂但准确（两遍扫描）
+
+4. **代码质量**：
+   - 主agent生成的是可执行Python代码
+   - 逻辑清晰、易调试、可复用
+   - 避免AI在prompt中处理复杂数据结构
+
+4. **可调试性**：
+   - 临时文件保留了中间状态
+   - Python脚本可独立测试和调试
+   - 可以归档用于问题诊断
+
+5. **Token节省**：
+   - Decomposer输出不占用主agent的context window
+   - 主agent只生成代码和读取摘要信息
+   - 大量JSON数据处理在Python中完成
 
 #### 影响文件
-- **`continue-decompose-frontend.md`** - 步骤3完全重写
-- **`continue-decompose-backend.md`** - 步骤3完全重写
+- **`continue-decompose-frontend.md`** - 步骤3修改输出格式，新增步骤4-5（等待+Python脚本整合），步骤编号调整
+- **`continue-decompose-backend.md`** - 步骤3修改输出格式，新增步骤4-5（等待+Python脚本整合+依赖解析），步骤编号调整
 
-#### 示例对比
+#### 实现方式：Python脚本而非Prompt处理
 
-**Frontend 批次（5个任务 → 25个组件）**:
+**为什么用Python脚本**：
+- JSON处理更可靠（不依赖AI理解数据结构）
+- 避免主agent处理大量数据（上百个任务的JSON）
+- ID分配和依赖解析逻辑复杂，代码实现更准确
+- 可测试、可调试、可复用
 
-修改前:
+**主agent职责**：
+1. 等待所有decomposer完成
+2. 生成Python脚本（`integrate_frontend_tasks.py` 或 `integrate_backend_tasks.py`）
+3. 运行脚本：`python .claude_tasks/integrate_xxx_tasks.py`
+4. 读取脚本输出的摘要信息
+
+**Python脚本职责**：
+- 读取所有临时JSON文件
+- 计算下一个可用的task ID
+- 分配ID给所有新任务
+- 解析依赖关系（backend：函数名→task ID）
+- 批量更新task_registry.json
+- 更新metadata计数器
+- 归档临时文件
+- 输出处理摘要
+
+#### 工作流对比
+
+**修改前（即时整合）**：
 ```
-5个 FrontendDecomposer + 25个 ContextGenerator = 30个 subagents
+Step 3: 调用5个decomposer
+  → decomposer 1 返回JSON（等待主agent处理）
+  → 主agent处理JSON 1，更新task_registry
+  → decomposer 2 返回JSON（等待主agent处理）
+  → 主agent处理JSON 2，更新task_registry
+  ... (串行瓶颈)
+Step 4: 调用context-generator
 ```
 
-修改后:
+**修改后（延迟整合 + Python脚本）**：
 ```
-1个 FrontendDecomposer + 25个 ContextGenerator = 26个 subagents
-节省 4个 subagent 调用
+Step 3: 调用5个decomposer（全部并行启动）
+  → decomposer 1 写文件，返回"✓"
+  → decomposer 2 写文件，返回"✓"
+  → decomposer 3 写文件，返回"✓"
+  ... (完全并行，无等待)
+  
+Step 4: 等待所有decomposer完成
+
+Step 5: 主agent生成并运行Python脚本
+  → 生成 integrate_frontend_tasks.py (150行代码)
+  → 运行 python .claude_tasks/integrate_frontend_tasks.py
+  → Python脚本自动:
+     * 读取5个临时文件
+     * 统一分配ID (1次操作)
+     * 批量写入task_registry (1次操作)
+     * 清理临时文件
+  → 主agent读取脚本输出摘要
+  
+Step 6: 调用context-generator（批量并行）
 ```
 
-**Backend 批次（8个服务 → 32个函数）**:
+#### 预期性能提升
 
-修改前:
+| 场景 | 修改前 | 修改后 | 提升 |
+|------|-------|-------|------|
+| 5个页面拆解 | 串行处理5次 | 并行+批量整合 | **3-5倍** |
+| 10个服务拆解 | 串行处理10次 | 并行+批量整合 | **5-8倍** |
+
+**Token消耗对比**：
+- 修改前：每个decomposer的完整JSON都在主agent context
+- 修改后：只有简单确认消息，主agent按需读取临时文件
+
+**数据流对比**：
 ```
-8个 BackendDecomposer + 32个 ContextGenerator = 40个 subagents
+修改前：
+Decomposer → [2-5KB JSON] → 主Agent context → 处理 → task_registry
+              (5个并行 = 10-25KB在context中)
+
+修改后：
+Decomposer → [写文件] → "✓" (10 bytes) → 主Agent
+             等所有完成 ↓
+主Agent → [生成Python脚本] → 运行脚本 → Python处理所有JSON → task_registry
+         (主agent不处理数据，只生成代码)
 ```
 
-修改后:
+**主Agent职责变化**：
 ```
-1个 BackendDecomposer + 32个 ContextGenerator = 33个 subagents
-节省 7个 subagent 调用
+修改前：
+- 接收5个大JSON响应（10-25KB）
+- 解析JSON数据结构
+- 计算ID、解析依赖、合并数据
+- 更新task_registry.json
+（复杂、易错、token消耗大）
+
+修改后：
+- 接收5个简单确认消息
+- 生成Python脚本（代码生成，AI擅长）
+- 运行脚本（一行命令）
+- 读取摘要输出（几行文本）
+（简单、可靠、token消耗小）
 ```
 
 ---

@@ -52,33 +52,28 @@ For each task in batch:
 - **For each new component task, invoke ContextGenerator** (see step 5)
 - **DO NOT skip decomposition** - every page must create component tasks
 
-### 3. Invoke FrontendDecomposer Subagent (Single Call for Entire Batch)
-
-**Important**: Create ONE FrontendDecomposer subagent to process ALL tasks in the current batch.
-The decomposer will analyze all tasks and return a complete decomposition result.
-
+### 3. Invoke FrontendDecomposer Subagent
 ```
+Create a FrontendDecomposer subagent for frontend_task_XXX.
+
 <subagent_task>
 Agent: @frontend-decomposer
 Input:
-- Batch tasks: [list of all task IDs in current batch]
-- Task details: [for each task: ID, type, title, wireframe reference]
-- Design references: [all relevant wireframe files]
+- Task ID: frontend_task_XXX
+- Task type: [module/page]
+- Design references: [list of wireframe files]
 - Frontend spec: docs/front-end-spec.md
 
-Task:
-For each task in the batch:
-
-**If task.type == "module":**
+Task (if module):
 1. List all pages in this module
 2. Group related pages
 3. Identify shared components across pages
 4. Create page-level tasks
 
-**If task.type == "page":**
+Task (if page):
 1. Read corresponding wireframe file
-2. Identify ALL UI components in layout (no matter how small)
-3. Classify each component:
+2. Identify all UI components in layout
+3. Classify components:
    - Container/Layout components
    - Presentational components
    - Form components
@@ -86,82 +81,90 @@ For each task in the batch:
    - Data display components (tables, cards)
 4. Identify state management needs
 5. Identify API integration points
-6. Create component-level tasks with full hierarchy
-7. A "simple" page MUST have minimum 5-10 components
+6. Create component-level tasks with hierarchy
 
-**If task.type == "component":**
-- Mark as "ready" (no decomposition needed)
+Output format: Save to `.claude_tasks/decomposition_temp/frontend_task_XXX.json`
 
-Output format: JSON object with decomposition for ALL batch tasks
+**CRITICAL - Save to temporary file, do NOT return large JSON**:
+```json
 {
-  "frontend_task_001": {
-    "original_task": {...},
-    "decomposed": true,
-    "subtasks": [
-      {
-        "id": "frontend_task_005",
-        "title": "LoginPage",
-        "level": 2,
-        "type": "page",
-        "parent_id": "frontend_task_001",
-        "design_reference": "designs/wireframes/login-page.md"
-      },
-      ...
-    ]
-  },
-  "frontend_task_002": {
-    "original_task": {...},
-    "decomposed": true,
-    "subtasks": [
-      {
-        "id": "frontend_task_008",
-        "title": "LoginForm",
-        "level": 3,
-        "type": "component",
-        "component_type": "form",
-        "parent_id": "frontend_task_002",
-        "props": ["onSubmit", "initialValues"],
-        "state": ["email", "password", "isLoading", "error"],
-        "hooks": ["useState", "useEffect"],
-        "api_calls": ["POST /api/auth/login"],
-        "design_reference": "designs/wireframes/login-page.md"
-      },
-      ...
-    ]
-  },
-  "frontend_task_003": {
-    "original_task": {...},
-    "decomposed": false,
-    "reason": "Already at component level"
+  "parent_task_id": "frontend_task_XXX",
+  "parent_type": "module|page",
+  "subtasks": [
+    {
+      "title": "ComponentName",
+      "level": 3,
+      "type": "component|page",
+      "component_type": "container|presentational|form|etc",
+      "props": ["prop1", "prop2"],
+      "state": ["state1", "state2"],
+      "hooks": ["useState", "useEffect"],
+      "api_calls": ["GET /api/users"],
+      "design_reference": "designs/wireframes/page.md"
+    }
+  ],
+  "summary": {
+    "total_subtasks": 8,
+    "pages": 0,
+    "components": 8
   }
 }
+```
+
+**After saving file, output**: "✓ Saved frontend_task_XXX decomposition: 8 subtasks"
 </subagent_task>
 ```
 
-**Wait for decomposer to complete and return results for ALL batch tasks.**
+### 4. Wait for All Decomposers to Complete
 
-### 4. Save Decomposed Tasks to Registry
-For each task decomposed by the FrontendDecomposer:
+**Wait for ALL decomposer subagents from step 3 to finish.**
 
-1. **Add new tasks to `task_registry.json`**:
-   - Append each subtask to the `tasks` object
-   - Update parent task's `children` array
-   - Update parent task's `status` from "pending" to "decomposed"
+Each decomposer saves its results to:
+- `.claude_tasks/decomposition_temp/frontend_task_XXX.json`
 
-2. **Update metadata**:
-   - Increment `frontend_metadata.total_pages` or `total_components`
-   - Update progress counters
+### 5. Integrate All Decomposition Results
 
-Example update:
+After all decomposers complete:
+
+#### 5.1 Read All Temporary Files
+Read all files from `.claude_tasks/decomposition_temp/frontend_task_*.json`
+
+#### 5.2 Assign Task IDs
+For each subtask across all decomposition files:
+1. Get current max task ID from task_registry.json (e.g., frontend_task_025)
+2. Assign sequential IDs to new tasks:
+   - frontend_task_026, frontend_task_027, ...
+3. Build ID mapping: temp references → actual IDs
+
+#### 5.3 Merge into task_registry.json
+For each decomposition result:
+1. **Add subtasks to `tasks` object**:
+   - Use assigned IDs from step 5.2
+   - Set `parent_id` to the decomposed task
+   - Set `status` based on type:
+     * `type == "component"` → status = "ready"
+     * `type == "page"` → status = "pending"
+   - Set `category` = "frontend"
+   - Include all metadata (props, state, hooks, etc.)
+
+2. **Update parent task**:
+   - Set parent's `status` = "decomposed"
+   - Set parent's `children` = [array of new task IDs]
+
+3. **Update metadata counters**:
+   - Increment `frontend_metadata.total_pages` by pages count
+   - Increment `frontend_metadata.total_components` by components count
+
+Example merged result:
 ```json
 {
   "tasks": {
     "frontend_task_001": {
       "status": "decomposed",
-      "children": ["frontend_task_005", "frontend_task_006", "frontend_task_007"]
+      "children": ["frontend_task_026", "frontend_task_027", "frontend_task_028"]
     },
-    "frontend_task_005": {
-      "id": "frontend_task_005",
+    "frontend_task_026": {
+      "id": "frontend_task_026",
       "title": "LoginPage",
       "level": 2,
       "type": "page",
@@ -174,13 +177,19 @@ Example update:
   },
   "frontend_metadata": {
     "total_modules": 4,
-    "total_pages": 12,
-    "total_components": 0
+    "total_pages": 15,
+    "total_components": 48
   }
 }
 ```
 
-### 5. Invoke Context Generator for Component Tasks (Parallel)
+#### 5.4 Clean Up Temporary Files
+After successful merge:
+- Delete all `.claude_tasks/decomposition_temp/frontend_task_*.json` files
+
+### 6. Invoke Context Generator for Component Tasks (Parallel)
+
+**After step 5 integration completes**, invoke context generators.
 
 **Trigger condition**: For each task where `level == 3` AND `type == "component"`
 
@@ -223,20 +232,16 @@ Processing sub-batch 1 of 3 (10 components)...
   ✓ Sub-batch 1 complete: 10/10 contexts generated
 
 Processing sub-batch 2 of 3 (10 components)...
-  Creating ALL 10 ContextGenerator subagents SIMULTANEOUSLY:
-  
-  <subagent_task>Agent: @context-generator (frontend_task_018 - DashboardHeader)</subagent_task>
-  <subagent_task>Agent: @context-generator (frontend_task_019 - StatsCard)</subagent_task>
-  ... [ALL 10 subagent blocks in ONE response]
-  
+  Creating 10 ContextGenerator subagents in parallel:
+  - frontend_task_018 (DashboardHeader)
+  - frontend_task_019 (StatsCard)
+  ... (10 total)
   ✓ Sub-batch 2 complete: 10/10 contexts generated
 
 Processing sub-batch 3 of 3 (5 components)...
-  Creating ALL 5 ContextGenerator subagents SIMULTANEOUSLY:
-  
-  <subagent_task>Agent: @context-generator (frontend_task_028 - SettingsForm)</subagent_task>
-  ... [ALL 5 subagent blocks in ONE response]
-  
+  Creating 5 ContextGenerator subagents in parallel:
+  - frontend_task_028 (SettingsForm)
+  ... (5 total)
   ✓ Sub-batch 3 complete: 5/5 contexts generated
 
 ✓ ALL batches complete: 25/25 contexts generated (100% coverage)
@@ -351,19 +356,19 @@ See: designs/wireframes/[page-name].md
 ```
 
 **Wait for current sub-batch to complete before proceeding to next sub-batch.**
-**Wait for ALL sub-batches to complete before proceeding to step 6.**
+**Wait for ALL sub-batches to complete before proceeding to step 7.**
 
-### 6. Update Checkpoint
+### 7. Update Checkpoint
 Save progress after each batch:
 - Update `state.json` with latest checkpoint
 - Save `task_registry.json` with all new tasks
 
-### 7. Check Completion
+### 8. Check Completion
 If all tasks are at component level (type == "component"):
 - Set `decomposition_phase.frontend_status = "completed"`
 - Output completion message
 
-### 8. Output Summary
+### 9. Output Summary
 ```
 Resuming from checkpoint: frontend_task_XXX
 
@@ -374,15 +379,25 @@ frontend_task_001 (Module: Authentication):
   
 frontend_task_002 (Page: Login):
   ✓ Analyzed wireframe: designs/wireframes/login-page.md
-  ✓ Identified 8 components:
-    - LoginContainer (container)
-    - LoginForm (form)
-    - EmailInput (form field)
-    - PasswordInput (form field)
-    - LoginButton (button)
-    - ForgotPasswordLink (link)
-    - SignupPrompt (text + link)
-    - ErrorMessage (alert)
+  ✓ Saved to: .claude_tasks/decomposition_temp/frontend_task_002.json
+  ✓ Identified 8 components
+
+=== Integration Phase (Python Script) ===
+Generated: .claude_tasks/integrate_frontend_tasks.py
+Executing integration script...
+
+✓ Integrated frontend_task_001.json: 3 subtasks
+✓ Integrated frontend_task_002.json: 8 subtasks
+✓ Integrated frontend_task_003.json: 5 subtasks
+
+=== Integration Summary ===
+Total new tasks: 16
+New pages: 3
+New components: 13
+Updated task_registry.json
+Archived 3 temp files
+
+Next available ID: frontend_task_042
 
 ✓ Processed [N] tasks in this batch
 ✓ [X] components ready, [Y] tasks need decomposition
