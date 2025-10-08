@@ -142,41 +142,104 @@ Status: frontend_decomposition_phase = in_progress
 Next command: /continue-decompose-frontend
 ```
 
-**步骤4：继续前端拆分（重复直到完成）**
+**步骤4:继续前端拆分(重复直到完成)**
 ```
 /continue-decompose-frontend
 ```
 
-**输出示例**：
+**输出示例 - 阶段1 (Level 1→Level 2)**:
 ```
+=== Decomposition Phase: Level 1 → Level 2 (Module → Page) ===
 Resuming from checkpoint: frontend_004
-Creating frontend-decomposer subagent...
 
-✓ Decomposed frontend_001 (Module) into:
-  - frontend_005: LoginPage (Page)
-  - frontend_006: RegisterPage (Page)
-  - frontend_007: ResetPasswordPage (Page)
+Batch tasks (Level 1): 2 modules
+Creating 2 FrontendDecomposer subagents in parallel...
 
-✓ Decomposed frontend_005 (Page) into:
-  - frontend_008: LoginForm (Component)
-  - frontend_009: SocialLoginButtons (Component)
-  - frontend_010: LoginHeader (Component)
+✓ Decomposed frontend_001 (Auth Module) into:
+  - 1.1: LoginPage
+  - 1.2: RegisterPage
+  - 1.3: ResetPasswordPage
+
+✓ Decomposed frontend_002 (Product Module) into:
+  - 2.1: ProductListPage
+  - 2.2: ProductDetailPage
+
+Processed 2 modules in this batch
+Next command: /continue-decompose-frontend
+```
+
+**输出示例 - 阶段2 (Level 2→Level 3)**:
+```
+=== Decomposition Phase: Level 2 → Level 3 (Page → Component) ===
+
+Batch tasks (Level 2): 3 pages
+Creating 3 FrontendDecomposer subagents in parallel...
+
+✓ Decomposed 1.1 (LoginPage) into:
+  - 1.1.1: LoginForm
+  - 1.1.2: SocialLoginButtons
+  - 1.1.3: LoginHeader
+
+✓ Decomposed 1.2 (RegisterPage) into:
+  - 1.2.1: RegisterForm
+  - 1.2.2: TermsCheckbox
+
+✓ Decomposed 1.3 (ResetPasswordPage) into:
+  - 1.3.1: ResetPasswordForm
 
 Processed 3 pages in this batch
-Updated checkpoint: frontend_010
-
-Next command: /continue-decompose-frontend (until all components defined)
+Next command: /continue-decompose-frontend (until all pages decomposed)
 ```
 
-重复执行直到看到：
+重复执行直到看到:
 ```
 ✓ All frontend tasks decomposed to component-level!
-✓ Total: 45 frontend components
-  - 12 Page components
-  - 33 Sub-components
+✓ Total: 45 frontend components (Level 3)
+  - 5 Modules (Level 1)
+  - 12 Pages (Level 2)
+  - 28 Components (Level 3)
 
 frontend_decomposition_phase.status = completed
+Next command: /generate-contexts-frontend
+```
+
+**步骤5:生成前端组件上下文**
+```
+/generate-contexts-frontend
+```
+
+**期望输出**:
+```
+=== Context Generation Phase (Frontend) ===
+
+Total component tasks (Level 3): 28
+Sub-batches needed: 3 (10 + 10 + 8)
+
+Processing sub-batch 1 of 3 (10 components)...
+  Creating ALL 10 ContextGenerator subagents SIMULTANEOUSLY:
+  
+  ✓ 1.1.1 (LoginForm) → .claude_tasks/contexts/1_1_1_context.md
+  ✓ 1.1.2 (SocialLoginButtons) → .claude_tasks/contexts/1_1_2_context.md
+  ✓ 1.1.3 (LoginHeader) → .claude_tasks/contexts/1_1_3_context.md
+  ... (10 total)
+  
+  ✓ Sub-batch 1 complete: 10/10 contexts generated
+
+Processing sub-batch 2 of 3 (10 components)...
+  ✓ Sub-batch 2 complete: 10/10 contexts generated
+
+Processing sub-batch 3 of 3 (8 components)...
+  ✓ Sub-batch 3 complete: 8/8 contexts generated
+
+✓ ALL batches complete: 28/28 contexts generated (100% coverage)
+
+Context generation phase completed!
 Next command: /init-decompose-backend
+```
+
+---
+
+#### 阶段2️⃣:后端拆分(Backend Decomposition)
 ```
 
 ---
@@ -204,52 +267,116 @@ Status: backend_decomposition_phase = in_progress
 Next command: /continue-decompose-backend
 ```
 
-**步骤6：继续后端拆分（重复直到完成）**
+**步骤6:继续后端拆分(重复直到完成)**
 ```
 /continue-decompose-backend
 ```
 
-**输出示例**：
+**输出示例 - 阶段1 (Level 1→Level 2)**:
 ```
+=== Decomposition Phase: Level 1 → Level 2 (Module → Service) ===
 Resuming from checkpoint: backend_005
-Creating backend-decomposer subagent...
 
-✓ Decomposed backend_001 (Module) into:
-  - backend_006: UserService (Service)
-  - backend_007: AuthService (Service)
+Batch tasks (Level 1): 2 modules
+Creating 2 BackendDecomposer subagents in parallel...
 
-✓ Decomposed backend_006 (Service) into:
-  - backend_008: register_user (API Layer)
-  - backend_009: login_user (API Layer)
-  - backend_010: validate_user_data (Service Layer)
-  - backend_011: create_user_record (Repository Layer)
-  - backend_012: hash_password (Utility Layer)
+✓ Decomposed 1 (User Module) into:
+  - 1.1: UserService
+  - 1.2: AuthService
+
+✓ Decomposed 2 (Product Module) into:
+  - 2.1: ProductService
+  - 2.2: InventoryService
+
+Processed 2 modules in this batch
+Next command: /continue-decompose-backend
+```
+
+**输出示例 - 阶段2 (Level 2→Level 3)**:
+```
+=== Decomposition Phase: Level 2 → Level 3 (Service → Function) ===
+
+Batch tasks (Level 2): 2 services
+Creating 2 BackendDecomposer subagents in parallel...
+
+✓ Decomposed 1.1 (UserService) into:
+  - 1.1.1: register_user (endpoint)
+  - 1.1.2: get_user_profile (endpoint)
+  - 1.1.3: validate_user_data (service)
+  - 1.1.4: create_user_record (repository)
+  - 1.1.5: hash_password (util)
+
+✓ Decomposed 1.2 (AuthService) into:
+  - 1.2.1: login_user (endpoint)
+  - 1.2.2: verify_token (service)
+  - 1.2.3: generate_jwt (util)
 
 Processed 2 services in this batch
-Updated checkpoint: backend_012
-
-Next command: /continue-decompose-backend (until all functions defined)
+Next command: /continue-decompose-backend (until all services decomposed)
 ```
 
-重复执行直到看到：
+重复执行直到看到:
 ```
 ✓ All backend tasks decomposed to function-level!
-✓ Total: 68 backend functions across 5 layers
-  - API Layer: 15 functions
-  - Service Layer: 22 functions
-  - Repository Layer: 18 functions
-  - Validation Layer: 8 functions
-  - Utility Layer: 5 functions
+✓ Total: 68 backend functions (Level 3)
+  - 4 Modules (Level 1)
+  - 12 Services (Level 2)
+  - 52 Functions (Level 3)
+    * API Layer: 15 functions
+    * Service Layer: 22 functions
+    * Repository Layer: 10 functions
+    * Util Layer: 5 functions
 
 backend_decomposition_phase.status = completed
+Next command: /generate-contexts-backend
+```
+
+**步骤7:生成后端函数上下文**
+```
+/generate-contexts-backend
+```
+
+**期望输出**:
+```
+=== Context Generation Phase (Backend) ===
+
+Total function tasks (Level 3): 52
+Sub-batches needed: 6 (10 + 10 + 10 + 10 + 10 + 2)
+
+Processing sub-batch 1 of 6 (10 functions)...
+  Creating ALL 10 ContextGenerator subagents SIMULTANEOUSLY:
+  
+  ✓ 1.1.1 (register_user) → .claude_tasks/contexts/1_1_1_context.md
+  ✓ 1.1.2 (get_user_profile) → .claude_tasks/contexts/1_1_2_context.md
+  ✓ 1.1.3 (validate_user_data) → .claude_tasks/contexts/1_1_3_context.md
+  ... (10 total)
+  
+  ✓ Sub-batch 1 complete: 10/10 contexts generated
+
+Processing sub-batch 2 of 6 (10 functions)...
+  ✓ Sub-batch 2 complete: 10/10 contexts generated
+
+... (batches 3-5)
+
+Processing sub-batch 6 of 6 (2 functions)...
+  ✓ Sub-batch 6 complete: 2/2 contexts generated
+
+✓ ALL batches complete: 52/52 contexts generated (100% coverage)
+
+Context generation phase completed!
 Next command: /build-deps-fullstack
 ```
 
 ---
 
-#### 阶段3️⃣：全栈依赖分析（Dependency Analysis）
+#### 阶段3️⃣:全栈依赖分析(Dependency Analysis)
+```
 
-**步骤7：构建跨栈依赖图**
+---
+
+#### 阶段3️⃣:全栈依赖分析(Dependency Analysis)
+
+**步骤8:构建跨栈依赖图**
 ```
 /build-deps-fullstack
 ```
@@ -287,9 +414,9 @@ Next command: /parallel-dev-fullstack 5
 
 ---
 
-#### 阶段4️⃣：全栈并行开发（Full-Stack Parallel TDD Development）
+#### 阶段4️⃣:全栈并行开发(Full-Stack Parallel TDD Development)
 
-**步骤8：执行全栈并行 TDD 开发**
+**步骤9:执行全栈并行 TDD 开发**
 ```
 /parallel-dev-fullstack 5
 ```
@@ -395,6 +522,11 @@ Next: /continue-decompose-frontend
 User: /continue-decompose-frontend
 
 System: ✓ All decomposed to 38 components
+Next: /generate-contexts-frontend
+
+User: /generate-contexts-frontend
+
+System: ✓ Generated 38 context files (100% coverage)
 Next: /init-decompose-backend
 
 # 第3步：后端拆分
@@ -411,6 +543,11 @@ Next: /continue-decompose-backend
 User: /continue-decompose-backend
 
 System: ✓ All decomposed (55 functions)
+Next: /generate-contexts-backend
+
+User: /generate-contexts-backend
+
+System: ✓ Generated 55 context files (100% coverage)
 Next: /build-deps-fullstack
 
 # 第4步：依赖分析
@@ -480,6 +617,10 @@ User: /continue-decompose-frontend
 System: ✓ All decomposed to 28 components
 Frontend decomposition complete!
 
+User: /generate-contexts-frontend
+
+System: ✓ Generated 28 context files
+
 User: /init-decompose-backend
 
 System: ✓ Created 4 backend modules
@@ -491,6 +632,10 @@ System: ✓ Decomposed to 42 functions
 User: /continue-decompose-backend
 
 System: ✓ All functions defined (42 total)
+
+User: /generate-contexts-backend
+
+System: ✓ Generated 42 context files
 
 User: /build-deps-fullstack
 
@@ -536,6 +681,10 @@ User: /continue-decompose-backend
 
 System: ✓ All decomposed to 38 functions
 
+User: /generate-contexts-backend
+
+System: ✓ Generated 38 context files
+
 User: /build-deps-fullstack
 
 System: ✓ Generated backend-only waves (4 waves)
@@ -553,6 +702,10 @@ System: ✓ Created Web frontend modules (3 modules)
 User: /continue-decompose-frontend
 
 System: ✓ All decomposed to 22 components
+
+User: /generate-contexts-frontend
+
+System: ✓ Generated 22 context files
 
 User: /build-deps-fullstack
 
@@ -595,6 +748,10 @@ System: ✓ All functions defined (25 total)
   Service Layer: 10 functions
   Repository Layer: 5 functions
   Utility Layer: 2 functions
+
+User: /generate-contexts-backend
+
+System: ✓ Generated 25 context files
 
 User: /build-deps-fullstack
 
