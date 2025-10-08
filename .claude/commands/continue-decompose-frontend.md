@@ -42,78 +42,53 @@ else:
     current_phase = "Level 2 → Level 3 (Page → Component)"
 ```
 
-### 2. Process Each Frontend Task
-For each task in batch:
+### 2. Analyze Batch Tasks (NO EXECUTION)
 
-**CRITICAL - COMPLETE DECOMPOSITION REQUIRED**:
-- You MUST decompose ALL non-component tasks to component level
-- DO NOT leave any task at module or page level
-- DO NOT mark page tasks as "complete" without decomposing them
-- Every page MUST be decomposed into its individual components
-- If a page seems "simple", it still has components (at minimum: container, content, buttons)
+**CRITICAL - THIS IS ANALYSIS ONLY, DO NOT CREATE ANY TASKS IN THIS STEP**:
+- Review each task in the batch to understand its type and requirements
+- All actual task creation happens in step 3 (subagent parallel execution)
+- DO NOT call add_subtask() or add_subtasks_batch() in this step
+- DO NOT create any subagent_task blocks in this step
+- This step is for planning and understanding what the decomposer subagents will do
 
-#### If task.type == "component":
-- Mark status as "ready"
-- **Immediately invoke ContextGenerator** (see step 6)
-- Note: Only Level 3 components get context files; Level 2/1 integration tasks do not
+**Understanding task decomposition requirements**:
+- Level 1 (module) → must decompose to Level 2 (pages)
+- Level 2 (page) → must decompose to Level 3 (components)
+- Level 3 (component) → already at leaf level, mark as "ready"
+
+**Task type analysis (for planning subagent work)**:
+
+#### If task.type == "component" (Level 3):
+- Already at leaf level
+- Will be marked as "ready" (no decomposition needed)
+- Context files will be generated later by `/generate-frontend-contexts`
 
 #### If task.type == "module" (Level 1):
-- **Decompose to Page level (Level 2)**
-- Use `add_subtask()` to create page tasks under this module
-- Each page gets dot notation ID based on parent (e.g., parent="1" → pages="1.1", "1.2", etc.)
-- Reference corresponding wireframe file
-- **DO NOT mark module as complete - pages must be decomposed next**
-- Parent status automatically changes to "decomposed"
-
-**Python example**:
-```python
-task_mgr = TaskRegistryManager()
-
-# Create page tasks under module "1"
-login_page_id = task_mgr.add_subtask("1", {
-    "title": "Login Page",
-    "type": "page",
-    "route": "/login",
-    "wireframe": "designs/wireframes/login.md"
-})  # Returns "1.1"
-
-signup_page_id = task_mgr.add_subtask("1", {
-    "title": "Signup Page",
-    "type": "page",
-    "route": "/signup",
-    "wireframe": "designs/wireframes/signup.md"
-})  # Returns "1.2"
-```
+- Needs decomposition to Page level (Level 2)
+- Subagent will analyze module and create page tasks
+- Each page gets dot notation ID: parent="1" → pages="1.1", "1.2", etc.
+- Each page references its wireframe file
+- Parent status will change: pending → decomposed
 
 #### If task.type == "page" (Level 2):
-- **MUST Decompose to Component level (Level 3)** (non-negotiable)
-- Analyze wireframe to identify ALL UI components
-- Use `add_subtasks_batch()` to create multiple component tasks at once
-- Each component gets dot notation ID (e.g., parent="1.1" → components="1.1.1", "1.1.2", etc.)
-- Create tasks for EVERY component:
+- Needs decomposition to Component level (Level 3)
+- Subagent will analyze wireframe and create component tasks
+- Each component gets dot notation ID: parent="1.1" → components="1.1.1", "1.1.2", etc.
+- Must create tasks for EVERY component:
   - Page container component (always required)
   - Section components (header, main, sidebar, footer)
   - Shared/reusable components (buttons, inputs, cards)
   - State management components (if needed)
   - API integration components (if needed)
 - A "simple" page still has minimum 5-10 components
-- **DO NOT skip decomposition** - every page must create component tasks
-- Parent status automatically changes to "decomposed"
-
-**Python example**:
-```python
-# Create component tasks under page "1.1"
-component_ids = task_mgr.add_subtasks_batch("1.1", [
-    {"title": "LoginForm", "type": "component"},
-    {"title": "LoginHeader", "type": "component"},
-    {"title": "SocialLoginButtons", "type": "component"},
-    {"title": "ForgotPasswordLink", "type": "component"}
-])  # Returns ["1.1.1", "1.1.2", "1.1.3", "1.1.4"]
-```
-
-**For each new component task, invoke ContextGenerator** (see step 5)
+- Parent status will change: pending → decomposed
 
 ### 3. Invoke FrontendDecomposer Subagents (Parallel)
+
+**THIS IS WHERE ACTUAL EXECUTION HAPPENS**:
+- Step 2 was analysis only
+- Step 3 is where you create ALL decomposer subagents simultaneously
+- This is the ONLY step where you create <subagent_task> blocks
 
 **CRITICAL - CREATE ALL DECOMPOSER SUBAGENTS IN PARALLEL**:
 - You MUST create decomposer subagents for ALL tasks in the batch SIMULTANEOUSLY
@@ -246,62 +221,52 @@ After all decomposers complete:
 #### 5.1 Read All Temporary Files
 Read all files from `.claude_tasks/frontend_decomposition_temp/frontend_task_*.json`
 
-#### 5.2 Assign Task IDs
-For each subtask across all decomposition files:
-1. Get current max task ID from task_registry.json (e.g., frontend_task_025)
-2. Assign sequential IDs to new tasks:
-   - frontend_task_026, frontend_task_027, ...
-3. Build ID mapping: temp references → actual IDs
+#### 5.2 Integrate Using Python Script (Tree Structure)
 
-#### 5.3 Merge into task_registry.json
-For each decomposition result:
-1. **Add subtasks to `tasks` object**:
-   - Use assigned IDs from step 5.2
-   - Set `parent_id` to the decomposed task
-   - Set `status` based on type:
-     * `type == "component"` → status = "ready"
-     * `type == "page"` → status = "pending"
-   - Set `category` = "frontend"
-   - Include all metadata (props, state, hooks, etc.)
+**CRITICAL - Call the pre-built integration script**:
 
-2. **Update parent task**:
-   - Set parent's `status` = "decomposed"
-   - Set parent's `children` = [array of new task IDs]
+Run the integration script from `.claude/scripts/` directory:
 
-3. **Update metadata counters**:
-   - Increment `frontend_metadata.total_pages` by pages count
-   - Increment `frontend_metadata.total_components` by components count
-
-Example merged result:
-```json
-{
-  "tasks": {
-    "frontend_task_001": {
-      "status": "decomposed",
-      "children": ["frontend_task_026", "frontend_task_027", "frontend_task_028"]
-    },
-    "frontend_task_026": {
-      "id": "frontend_task_026",
-      "title": "LoginPage",
-      "level": 2,
-      "type": "page",
-      "category": "frontend",
-      "status": "pending",
-      "parent_id": "frontend_task_001",
-      "children": [],
-      "design_reference": "designs/wireframes/login-page.md"
-    }
-  },
-  "frontend_metadata": {
-    "total_modules": 4,
-    "total_pages": 15,
-    "total_components": 48
-  }
-}
+```bash
+cd .claude/scripts
+python integrate_decomposition.py --category frontend
 ```
 
-#### 5.4 Temporary File Cleanup Responsibility
-**The deletion of temporary files (.claude_tasks/frontend_decomposition_temp/frontend_task_*.json) MUST be performed by you only after confirming that all tasks have been successfully merged into task_registry.json. The Python integration script MUST NOT delete temporary files directly.**
+**What the script does automatically**:
+1. Reads all files from `.claude_tasks/frontend_decomposition_temp/*.json`
+2. For each decomposition file:
+   - Calls `TaskRegistryManager.add_subtasks_batch(parent_id, subtasks)`
+   - Automatically assigns dot notation IDs (e.g., "1.1", "1.1.1")
+   - Sets parent_id correctly for all subtasks
+   - Updates parent status to "decomposed"
+   - Maintains hierarchical tree relationships
+3. Validates tree structure integrity
+4. Archives processed files to `.claude_tasks/frontend_decomposition_archive/`
+5. Prints integration summary with task counts
+
+**Expected output**:
+```
+=== Integration Phase (Python API) ===
+Using TaskRegistryManager.add_subtasks_batch() to maintain tree structure...
+
+Integrating frontend_task_001.json:
+  Parent: "1" (Module: Authentication)
+  ✓ Created 3 subtasks with IDs: 1.1, 1.2, 1.3
+  ✓ Parent status: pending → decomposed
+  ✓ Tree structure validated
+
+Integrating frontend_task_002.json:
+  Parent: "1.1" (Page: Login)
+  ✓ Created 8 subtasks with IDs: 1.1.1, 1.1.2, ..., 1.1.8
+  ✓ Parent status: pending → decomposed
+  ✓ Tree structure validated
+
+=== Integration Summary ===
+Total new tasks: 11
+By type: 8 components (ready), 3 pages (pending)
+Tree hierarchy maintained with dot notation IDs
+Archived 2 temp files
+```
 
 ### 6. Update Checkpoint
 Save progress after each batch:
@@ -325,29 +290,24 @@ Tasks needing decomposition: 3
 Creating 3 FrontendDecomposer subagents in parallel...
 
 frontend_task_001 (Module: Authentication):
-  ✓ Decomposed into 3 pages
+  ✓ Analyzed wireframes
+  ✓ Saved to: .claude_tasks/frontend_decomposition_temp/frontend_task_001.json
+  ✓ Identified 3 pages
   
 frontend_task_002 (Page: Login):
   ✓ Analyzed wireframe: designs/wireframes/login-page.md
   ✓ Saved to: .claude_tasks/frontend_decomposition_temp/frontend_task_002.json
   ✓ Identified 8 components
 
-=== Integration Phase (Python Script) ===
-Generated: .claude_tasks/integrate_frontend_tasks.py
-Executing integration script...
+frontend_task_003 (Page: Signup):
+  ✓ Analyzed wireframe: designs/wireframes/signup-page.md
+  ✓ Saved to: .claude_tasks/frontend_decomposition_temp/frontend_task_003.json
+  ✓ Identified 5 components
 
-✓ Integrated frontend_task_001.json: 3 subtasks
-✓ Integrated frontend_task_002.json: 8 subtasks
-✓ Integrated frontend_task_003.json: 5 subtasks
+=== Integration Phase ===
+Running: python integrate_decomposition.py --category frontend
 
-=== Integration Summary ===
-Total new tasks: 16
-New pages: 3
-New components: 13
-Updated task_registry.json
-Archived 3 temp files
-
-Next available ID: frontend_task_042
+[Script output will appear here showing integration progress]
 
 ✓ Processed [N] tasks in this batch
 ✓ [X] components ready (status="ready")

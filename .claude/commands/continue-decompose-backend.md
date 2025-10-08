@@ -42,70 +42,52 @@ else:
     current_phase = "Level 2 → Level 3 (Service → Function)"
 ```
 
-### 2. Process Each Backend Task
+### 2. Analyze Batch Tasks (NO EXECUTION)
 
-**CRITICAL - COMPLETE DECOMPOSITION REQUIRED**:
-- You MUST decompose ALL non-function tasks to function level
-- DO NOT leave any task at module or service level
-- DO NOT mark service tasks as "complete" without decomposing them
-- Every service MUST be decomposed into its individual functions
-- If a service seems "simple", it still has functions (at minimum: handler, validator, repository)
+**CRITICAL - THIS IS ANALYSIS ONLY, DO NOT CREATE ANY TASKS IN THIS STEP**:
+- Review each task in the batch to understand its type and requirements
+- All actual task creation happens in step 3 (subagent parallel execution)
+- DO NOT call add_subtask() or add_subtasks_batch() in this step
+- DO NOT create any subagent_task blocks in this step
+- This step is for planning and understanding what the decomposer subagents will do
 
-#### If task.type == "function":
-- Mark as "ready"
-- Note: Context generation will be handled by `/generate-backend-contexts` command later
+**Understanding task decomposition requirements**:
+- Level 1 (module) → must decompose to Level 2 (services)
+- Level 2 (service) → must decompose to Level 3 (functions)
+- Level 3 (function) → already at leaf level, mark as "ready"
+
+**Task type analysis (for planning subagent work)**:
+
+#### If task.type == "function" (Level 3):
+- Already at leaf level
+- Will be marked as "ready" (no decomposition needed)
+- Context files will be generated later by `/generate-backend-contexts`
 
 #### If task.type == "module" (Level 1):
-- **Decompose to Service level (Level 2)**
-- Use `add_subtask()` to create service tasks under this module
-- Each service gets dot notation ID based on parent (e.g., parent="1" → services="1.1", "1.2", etc.)
-- **DO NOT mark module as complete - services must be decomposed next**
-- Parent status automatically changes to "decomposed"
-
-**Python example**:
-```python
-task_mgr = TaskRegistryManager()
-
-# Create service tasks under module "1"
-auth_api_id = task_mgr.add_subtask("1", {
-    "title": "Authentication API Layer",
-    "type": "service",
-    "description": "API endpoints for auth"
-})  # Returns "1.1"
-
-auth_service_id = task_mgr.add_subtask("1", {
-    "title": "Authentication Service Layer",
-    "type": "service",
-    "description": "Business logic for auth"
-})  # Returns "1.2"
-```
+- Needs decomposition to Service level (Level 2)
+- Subagent will analyze module and create service tasks
+- Each service gets dot notation ID: parent="1" → services="1.1", "1.2", etc.
+- Parent status will change: pending → decomposed
 
 #### If task.type == "service" (Level 2):
-- **MUST Decompose to Function/Endpoint level (Level 3)** (non-negotiable)
-- Use `add_subtasks_batch()` to create multiple function tasks at once
-- Each function gets dot notation ID (e.g., parent="1.1" → functions="1.1.1", "1.1.2", etc.)
-- Create tasks for ALL functions:
+- Needs decomposition to Function level (Level 3)
+- Subagent will analyze service and create function tasks
+- Each function gets dot notation ID: parent="1.1" → functions="1.1.1", "1.1.2", etc.
+- Must create tasks for ALL functions:
   - API endpoints (route handlers)
   - Service layer functions (business logic)
   - Data access functions (repository/ORM)
   - Validation functions
   - Utility functions
 - A "simple" service still has minimum 5-10 functions
-- **DO NOT skip decomposition** - every service must create function tasks
-- Parent status automatically changes to "decomposed"
-
-**Python example**:
-```python
-# Create function tasks under service "1.1"
-function_ids = task_mgr.add_subtasks_batch("1.1", [
-    {"title": "login_endpoint", "type": "function", "http_method": "POST", "route": "/api/auth/login"},
-    {"title": "signup_endpoint", "type": "function", "http_method": "POST", "route": "/api/auth/signup"},
-    {"title": "logout_endpoint", "type": "function", "http_method": "POST", "route": "/api/auth/logout"},
-    {"title": "verify_token", "type": "function", "description": "JWT verification utility"}
-])  # Returns ["1.1.1", "1.1.2", "1.1.3", "1.1.4"]
-```
+- Parent status will change: pending → decomposed
 
 ### 3. Invoke BackendDecomposer Subagents (Parallel)
+
+**THIS IS WHERE ACTUAL EXECUTION HAPPENS**:
+- Step 2 was analysis only
+- Step 3 is where you create ALL decomposer subagents simultaneously
+- This is the ONLY step where you create <subagent_task> blocks
 
 **CRITICAL - CREATE ALL DECOMPOSER SUBAGENTS IN PARALLEL**:
 - You MUST create decomposer subagents for ALL tasks in the batch SIMULTANEOUSLY
@@ -251,76 +233,52 @@ After all decomposers complete:
 #### 5.1 Read All Temporary Files
 Read all files from `.claude_tasks/backend_decomposition_temp/backend_task_*.json`
 
-#### 5.2 Assign Task IDs
-For each subtask across all decomposition files:
-1. Get current max task ID from task_registry.json (e.g., backend_task_042)
-2. Assign sequential IDs to new tasks:
-   - backend_task_043, backend_task_044, ...
-3. Build ID mapping for dependencies:
-   - If subtask has `dependencies: ["validate_email", "hash_password"]`
-   - Look up these function names in all decomposition results
-   - Replace with actual task IDs: `["backend_task_045", "backend_task_046"]`
+#### 5.2 Integrate Using Python Script (Tree Structure)
 
-#### 5.3 Merge into task_registry.json
-For each decomposition result:
-1. **Add subtasks to `tasks` object**:
-   - Use assigned IDs from step 5.2
-   - Set `parent_id` to the decomposed task
-   - Set `status` based on type:
-     * `type == "function"` → status = "ready"
-     * `type == "service"` → status = "pending"
-   - Set `category` = "backend"
-   - Resolve dependency references to task IDs
-   - Include all metadata (http_method, route, function_signature, etc.)
+**CRITICAL - Call the pre-built integration script**:
 
-2. **Update parent task**:
-   - Set parent's `status` = "decomposed"
-   - Set parent's `children` = [array of new task IDs]
+Run the integration script from `.claude/scripts/` directory:
 
-3. **Update metadata counters**:
-   - Increment `backend_metadata.total_services` by services count
-   - Increment `backend_metadata.total_functions` by functions count
-   - Update `by_layer` counters (endpoint, service, repository, etc.)
-
-Example merged result:
-```json
-{
-  "tasks": {
-    "backend_task_001": {
-      "status": "decomposed",
-      "children": ["backend_task_043", "backend_task_044", "backend_task_045"]
-    },
-    "backend_task_043": {
-      "id": "backend_task_043",
-      "title": "loginUser",
-      "level": 3,
-      "type": "function",
-      "function_type": "endpoint",
-      "category": "backend",
-      "status": "ready",
-      "parent_id": "backend_task_001",
-      "http_method": "POST",
-      "route": "/api/auth/login",
-      "dependencies": ["backend_task_044", "backend_task_045"]
-    }
-  },
-  "backend_metadata": {
-    "total_modules": 4,
-    "total_services": 8,
-    "total_functions": 47,
-    "by_layer": {
-      "endpoint": 12,
-      "service": 18,
-      "repository": 10,
-      "validator": 4,
-      "util": 3
-    }
-  }
-}
+```bash
+cd .claude/scripts
+python integrate_decomposition.py --category backend
 ```
 
-#### 5.4 Temporary File Cleanup Responsibility
-**The deletion of temporary files (.claude_tasks/backend_decomposition_temp/backend_task_*.json) MUST be performed by you only after confirming that all tasks have been successfully merged into task_registry.json. The Python integration script MUST NOT delete temporary files directly.**
+**What the script does automatically**:
+1. Reads all files from `.claude_tasks/backend_decomposition_temp/*.json`
+2. For each decomposition file:
+   - Calls `TaskRegistryManager.add_subtasks_batch(parent_id, subtasks)`
+   - Automatically assigns dot notation IDs (e.g., "1.1", "1.1.1")
+   - Sets parent_id correctly for all subtasks
+   - Updates parent status to "decomposed"
+   - Maintains hierarchical tree relationships
+3. Validates tree structure integrity
+4. Archives processed files to `.claude_tasks/backend_decomposition_archive/`
+5. Prints integration summary with task counts
+
+**Expected output**:
+```
+=== Integration Phase (Python API) ===
+Using TaskRegistryManager.add_subtasks_batch() to maintain tree structure...
+
+Integrating backend_task_001.json:
+  Parent: "2.1" (Service: AuthenticationService)
+  ✓ Created 12 subtasks with IDs: 2.1.1, 2.1.2, 2.1.3, ..., 2.1.12
+  ✓ Parent status: pending → decomposed
+  ✓ Tree structure validated
+
+Integrating backend_task_002.json:
+  Parent: "2.2" (Service: UserManagementService)
+  ✓ Created 8 subtasks with IDs: 2.2.1, 2.2.2, ..., 2.2.8
+  ✓ Parent status: pending → decomposed
+  ✓ Tree structure validated
+
+=== Integration Summary ===
+Total new tasks: 20
+By type: 12 functions (ready), 8 services (pending)
+Tree hierarchy maintained with dot notation IDs
+Archived 2 temp files
+```
 
 ### 6. Update Checkpoint
 Save progress after each batch:
@@ -341,24 +299,20 @@ backend_task_001 (Service: AuthenticationService):
   ✓ Saved to: .claude_tasks/backend_decomposition_temp/backend_task_001.json
   ✓ Identified 12 functions (3 endpoints, 5 services, 2 repositories, 1 validator, 1 util)
 
-=== Integration Phase (Python Script) ===
-Generated: .claude_tasks/integrate_backend_tasks.py
-Executing integration script...
+backend_task_002 (Service: UserManagementService):
+  ✓ Analyzed requirements
+  ✓ Saved to: .claude_tasks/backend_decomposition_temp/backend_task_002.json
+  ✓ Identified 8 functions
 
-✓ Integrated backend_task_001.json: 12 functions
-✓ Integrated backend_task_002.json: 8 functions
-✓ Integrated backend_task_003.json: 6 functions
+backend_task_003 (Module: DataAccessLayer):
+  ✓ Analyzed module structure
+  ✓ Saved to: .claude_tasks/backend_decomposition_temp/backend_task_003.json
+  ✓ Identified 6 services
 
-=== Integration Summary ===
-Total new tasks: 26
-New services: 0
-New functions: 26
-By type: {'endpoint': 7, 'service': 11, 'repository': 5, 'validator': 2, 'util': 1}
-Resolved 47 dependencies
-Updated task_registry.json
-Archived 3 temp files
+=== Integration Phase ===
+Running: python integrate_decomposition.py --category backend
 
-Next available ID: backend_task_069
+[Script output will appear here showing integration progress]
 
 ✓ Processed [N] tasks
 ✓ [X] functions ready (status="ready")

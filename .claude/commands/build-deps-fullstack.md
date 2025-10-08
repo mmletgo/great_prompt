@@ -116,7 +116,11 @@ Task:
    - Level 2 (depends on level 1): 17 tasks → Wave 5 (8 tasks), Wave 6 (9 tasks)
    - Result: 6 waves, each with 4-9 tasks
 
-Output format:
+**CRITICAL - Save output to file, do NOT return large JSON**:
+
+Output format: Save to `.claude_tasks/dependency_graph.json`
+
+```json
 {
   "frontend_dependencies": {...},
   "backend_dependencies": {...},
@@ -131,21 +135,21 @@ Output format:
       "wave": 1,
       "level": 3,
       "category": "backend",
-      "tasks": ["2.1.1", "2.1.2", "2.2.1"],  // Backend functions
+      "tasks": ["2.1.1", "2.1.2", "2.2.1"],
       "description": "Backend utility functions"
     },
     {
       "wave": 2,
       "level": 3,
       "category": "backend",
-      "tasks": ["2.3.1", "2.3.2"],  // Backend API endpoints
-      "description": "Backend API layer"
+      "tasks": ["2.3.1", "2.3.2"],
+      "description": "Backend API endpoints"
     },
     {
       "wave": 3,
       "level": 3,
       "category": "frontend",
-      "tasks": ["1.1.1", "1.1.2", "1.1.3"],  // Frontend components
+      "tasks": ["1.1.1", "1.1.2", "1.1.3"],
       "description": "Frontend components"
     },
     
@@ -154,7 +158,7 @@ Output format:
       "wave": 4,
       "level": 2,
       "category": "backend",
-      "tasks": ["2.1", "2.2"],  // Backend services (integrate functions)
+      "tasks": ["2.1", "2.2"],
       "description": "Backend service integration",
       "children": {
         "2.1": ["2.1.1", "2.1.2"],
@@ -165,7 +169,7 @@ Output format:
       "wave": 5,
       "level": 2,
       "category": "frontend",
-      "tasks": ["1.1", "1.2"],  // Frontend pages (integrate components)
+      "tasks": ["1.1", "1.2"],
       "description": "Frontend page integration",
       "children": {
         "1.1": ["1.1.1", "1.1.2", "1.1.3"],
@@ -178,7 +182,7 @@ Output format:
       "wave": 6,
       "level": 1,
       "category": "backend",
-      "tasks": ["2"],  // Backend module (integrate services)
+      "tasks": ["2"],
       "description": "Backend module integration",
       "children": {
         "2": ["2.1", "2.2", "2.3"]
@@ -188,7 +192,7 @@ Output format:
       "wave": 7,
       "level": 1,
       "category": "frontend",
-      "tasks": ["1"],  // Frontend module (integrate pages)
+      "tasks": ["1"],
       "description": "Frontend module integration",
       "children": {
         "1": ["1.1", "1.2", "1.3"]
@@ -196,46 +200,74 @@ Output format:
     }
   ]
 }
+```
+
+**After saving file, output**: "✓ Saved dependency graph to .claude_tasks/dependency_graph.json"
 </subagent_task>
 ```
 
-### 3. Update Task Registry
-Merge dependency graph into task_registry.json using Python scripts.
+### 3. Update Task Registry with Dependency Graph
 
-**📄 Script Reference**: See [.claude/scripts/README.md](../.claude/scripts/README.md)
+**CRITICAL - Call the pre-built script to update registry**:
 
-**Python commands**:
-```python
-from state_manager import StateManager
-from task_registry_manager import TaskRegistryManager
+After the analyzer subagent completes and saves the dependency graph JSON file, run:
 
-state_mgr = StateManager()
-task_mgr = TaskRegistryManager()
-
-# Add dependencies using dot notation IDs
-# Frontend component depends on backend function
-task_mgr.add_dependency("1.2.3", "2.1.1")  # LoginForm depends on login_endpoint
-
-# Backend function depends on another backend function
-task_mgr.add_dependency("2.1.1", "2.2.1")  # login_endpoint depends on validate_credentials
-
-# Set execution order (from analyzer output)
-waves = [
-    {"wave": 1, "category": "backend", "tasks": ["2.1.1", "2.1.2", "2.1.3"]},
-    {"wave": 2, "category": "backend", "tasks": ["2.2.1", "2.2.2"]},
-    {"wave": 3, "category": "frontend", "tasks": ["1.1.1", "1.1.2"]},
-    # ... more waves with dot notation IDs
-]
-task_mgr.set_execution_order(waves)
-
-# Mark dependency phase complete
-total_waves = len(waves)
-state_mgr.complete_dependency_analysis(total_waves=total_waves)
+```bash
+cd .claude/scripts
+python update_dependency_graph.py --input ../.claude_tasks/dependency_graph.json
 ```
 
-This updates:
-- `task_registry.json`: dependency_graph.execution_order array
-- `state.json`: dependency_phase status and total_waves
+**What the script does automatically**:
+1. **Loads dependency graph** from analyzer output JSON file
+2. **Validates the graph**:
+   - Checks all required fields present
+   - Verifies wave numbers are sequential
+   - Confirms task counts (5-10 per wave)
+   - Validates all tasks are included
+   - Checks no circular dependencies
+3. **Adds dependencies** to task_registry.json:
+   - Cross-stack dependencies (frontend → backend)
+   - Internal dependencies (within frontend/backend)
+   - Uses dot notation IDs (e.g., "1.2.3" depends on "2.1.1")
+4. **Sets execution order**:
+   - Updates task_registry.json with waves
+   - Includes level, category, description for each wave
+5. **Updates state.json**:
+   - Sets dependency_phase.status = "completed"
+   - Sets dependency_phase.total_waves
+6. **Prints summary** of execution plan
+
+**Expected output**:
+```
+Loading dependency graph from dependency_graph.json...
+
+Validating dependency graph...
+✓ Dependency graph validation passed
+
+Adding dependencies to task registry...
+✓ Added 47 dependencies
+
+Setting execution order (waves)...
+✓ Set execution order with 9 waves
+
+=== Execution Plan Summary ===
+Wave 1: 8 tasks (Level 3 - backend)
+  Backend utility functions
+Wave 2: 9 tasks (Level 3 - backend)
+  Backend API endpoints
+Wave 3: 10 tasks (Level 3 - frontend)
+  Frontend shared components
+...
+
+Marking dependency phase complete (total waves: 9)...
+✓ Updated state.json: dependency_phase = completed
+
+✅ Dependency graph successfully updated!
+   - task_registry.json: dependencies and execution order added
+   - state.json: dependency_phase marked complete
+
+Next command: /parallel-dev-fullstack
+```
 
 ### 4. Validate
 Ensure:
@@ -254,10 +286,21 @@ Frontend Tasks: [N]
 Backend Tasks: [M]
 Total Tasks: [N+M]
 
-Dependency Analysis:
-✓ Frontend internal dependencies: [X]
-✓ Backend internal dependencies: [Y]
-✓ Cross-stack dependencies: [Z]
+=== Dependency Analysis (Subagent) ===
+✓ Analyzed frontend internal dependencies
+✓ Analyzed backend internal dependencies
+✓ Analyzed cross-stack dependencies
+✓ Created execution waves with balanced task distribution
+✓ Saved to: .claude_tasks/dependency_graph.json
+
+=== Integration (Python Script) ===
+Running: python update_dependency_graph.py --input dependency_graph.json
+
+[Script output showing validation and integration]
+
+✓ Dependency graph successfully updated!
+✓ Updated task_registry.json with fullstack dependency graph
+✓ Updated state.json: dependency_phase = completed
 
 Execution Plan (3-Phase Bottom-Up Integration):
   
@@ -292,7 +335,6 @@ Cross-Stack Dependencies Examples:
   - 2.1.1 (POST /api/auth/login)
   - 2.1.2 (validate_credentials)
 
-✓ Updated task_registry.json with fullstack dependency graph
 ✓ Ready for parallel development
 
 Next command: /parallel-dev-fullstack [N]
