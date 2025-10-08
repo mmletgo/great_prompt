@@ -1,0 +1,321 @@
+# Wireframe Output Template
+
+## Overview
+Wireframes are ASCII-based visual representations of each page/screen in the application. They serve as design specifications for frontend component development.
+
+## File Location
+```
+designs/wireframes/{page-name}.md
+```
+Where `{page-name}` is lowercase with hyphens (e.g., `login-page.md`, `user-dashboard.md`)
+
+## Complete Wireframe Structure
+
+```markdown
+# {Page Name}
+
+**Type**: {Page|Modal|Drawer}
+**Route**: {/route/path}
+**Access**: {Public|Authenticated|Admin}
+**Related Flow**: See [User Flows](../user-flows.md#{flow-name})
+
+## Page Structure
+
+### Layout
+- **Header**: {Present|None}
+- **Navigation**: {Present|None|Sidebar|Top}
+- **Main Content**: {Layout type}
+- **Footer**: {Present|None}
+
+### Responsive Breakpoints
+- **Mobile**: < 768px
+- **Tablet**: 768px - 1024px
+- **Desktop**: > 1024px
+
+## ASCII Wireframe
+
+\`\`\`
+┌─────────────────────────────────────────────────────────┐
+│ Header                                        [☰] Menu   │
+├─────────────────────────────────────────────────────────┤
+│                                                          │
+│  ┌────────────────────────────────────────────────┐    │
+│  │  {Section Name}                                │    │
+│  │                                                 │    │
+│  │  [Component1]  [Component2]  [Component3]     │    │
+│  │                                                 │    │
+│  │  {Content description}                         │    │
+│  └────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌────────────────────────────────────────────────┐    │
+│  │  {Another Section}                             │    │
+│  │  • List item 1                                  │    │
+│  │  • List item 2                                  │    │
+│  └────────────────────────────────────────────────┘    │
+│                                                          │
+├─────────────────────────────────────────────────────────┤
+│ Footer                                                   │
+└─────────────────────────────────────────────────────────┘
+\`\`\`
+
+## Component Breakdown
+
+### 1. Header
+- **Component Type**: Header
+- **Props**: logo, navigation items, user menu
+- **State**: menuOpen
+- **Interactions**: Click hamburger menu, click user profile
+
+### 2. {Section Name}
+- **Component Type**: {type}
+- **Props**: {props list}
+- **State**: {state variables}
+- **Interactions**: {user interactions}
+
+### 3. {Component Name}
+- **Component Type**: {Button|Form|Card|List|etc}
+- **Props**: 
+  - `{propName}`: {type} - {description}
+  - `{propName2}`: {type} - {description}
+- **State**: 
+  - `{stateName}`: {type} - {description}
+- **Events**:
+  - `{eventName}`: {description}
+- **Validation** (if form):
+  - {validation rule 1}
+  - {validation rule 2}
+
+## States
+
+### Loading State
+\`\`\`
+┌─────────────────────────────────────────────────────────┐
+│  Loading...                                              │
+│  [Spinner animation]                                     │
+└─────────────────────────────────────────────────────────┘
+\`\`\`
+
+### Error State
+\`\`\`
+┌─────────────────────────────────────────────────────────┐
+│  ⚠️  Error Message                                       │
+│  {Error description}                                     │
+│  [Retry Button]                                          │
+└─────────────────────────────────────────────────────────┘
+\`\`\`
+
+### Empty State
+\`\`\`
+┌─────────────────────────────────────────────────────────┐
+│  📭 No {items} yet                                       │
+│  {Empty state message}                                   │
+│  [Call to Action Button]                                 │
+└─────────────────────────────────────────────────────────┘
+\`\`\`
+
+### Success State
+\`\`\`
+┌─────────────────────────────────────────────────────────┐
+│  ✓ Success Message                                       │
+│  {Success description}                                   │
+└─────────────────────────────────────────────────────────┘
+\`\`\`
+
+## Interactions
+
+### Interaction 1: {Action Name}
+**Trigger**: {User action}
+**Response**: {System response}
+**Validation**: {Validation rules}
+**Error Handling**: {Error scenarios}
+**Success**: {Success behavior}
+
+### Interaction 2: {Action Name}
+**Trigger**: {User action}
+**Response**: {System response}
+**Navigation**: {Where user goes next}
+
+## API Calls
+
+### API 1: {Endpoint Name}
+- **Endpoint**: `{METHOD} /api/{path}`
+- **Trigger**: {When called}
+- **Request**:
+  \`\`\`json
+  {
+    "field": "value"
+  }
+  \`\`\`
+- **Response**:
+  \`\`\`json
+  {
+    "data": {}
+  }
+  \`\`\`
+- **Loading**: {Loading state behavior}
+- **Success**: {Success handling}
+- **Error**: {Error handling}
+
+## Navigation
+
+### From This Page
+- **Route 1**: `/path` - {When/how}
+- **Route 2**: `/path` - {When/how}
+
+### To This Page
+- **From Route 1**: `/path` - {When/how}
+- **From Route 2**: `/path` - {When/how}
+
+## Accessibility
+
+### ARIA Labels
+- `{element}`: aria-label="{label}"
+- `{element}`: aria-describedby="{id}"
+
+### Keyboard Navigation
+- **Tab**: Move between focusable elements
+- **Enter**: {Action}
+- **Escape**: {Action}
+
+### Screen Reader
+- {Screen reader announcement 1}
+- {Screen reader announcement 2}
+
+## Responsive Design
+
+### Mobile (< 768px)
+- {Mobile-specific behavior}
+- {Layout changes}
+- {Hidden/shown elements}
+
+### Tablet (768px - 1024px)
+- {Tablet-specific behavior}
+- {Layout changes}
+
+### Desktop (> 1024px)
+- {Desktop-specific behavior}
+- {Layout changes}
+
+## Design System References
+See `docs/front-end-spec.md` for:
+- Color palette
+- Typography scale
+- Component variants
+- Spacing system
+- Animation specifications
+
+## Notes
+- {Additional notes}
+- {Design decisions}
+- {Implementation considerations}
+```
+
+## Required Sections
+
+All wireframes MUST include:
+1. **Page metadata**: Type, route, access level, related flow
+2. **Page Structure**: Layout breakdown
+3. **ASCII Wireframe**: Visual representation
+4. **Component Breakdown**: Detailed component specs
+5. **States**: Loading, error, empty, success states
+6. **Interactions**: User interaction flows
+7. **API Calls**: Backend integration points
+8. **Navigation**: Routes in/out
+9. **Accessibility**: ARIA, keyboard, screen readers
+10. **Responsive Design**: Mobile, tablet, desktop behavior
+
+## ASCII Wireframe Guidelines
+
+### Box Drawing Characters
+```
+┌ ┐ └ ┘  - Corners
+│        - Vertical lines
+─        - Horizontal lines
+├ ┤ ┬ ┴ ┼ - T-junctions and cross
+```
+
+### Component Symbols
+```
+[Button]          - Button
+[═══════]         - Input field
+[▼ Select]        - Dropdown
+☐ Checkbox        - Checkbox
+◯ Radio           - Radio button
+[Toggle: ON|OFF]  - Toggle switch
+{Content area}    - Text/content
+[🔍 Search]       - Search bar
+[☰] Menu          - Hamburger menu
+[@] Username      - User profile
+[🔔] 3            - Notification badge
+```
+
+### Layout Symbols
+```
+┌─Header─┐        - Header section
+│ Content │        - Content area
+├─Sidebar┤        - Sidebar
+└─Footer─┘        - Footer section
+```
+
+## Validation Criteria
+
+### Structure Validation
+- ✓ All required sections present
+- ✓ ASCII wireframe properly formatted
+- ✓ Box drawing characters used correctly
+- ✓ Clear visual hierarchy
+
+### Content Validation
+- ✓ Component breakdown complete
+- ✓ All states defined (loading, error, empty, success)
+- ✓ Interactions documented
+- ✓ API calls specified
+- ✓ Navigation flows clear
+
+### Consistency Validation
+- ✓ Component naming consistent with design system
+- ✓ Layout patterns consistent across pages
+- ✓ State handling consistent
+- ✓ Navigation structure consistent
+
+### Completeness Validation
+- ✓ All user flows covered by wireframes
+- ✓ All routes/pages have wireframes
+- ✓ Cross-references valid (user-flows.md, front-end-spec.md)
+
+## Integration with Other Files
+
+### User Flows Reference
+```markdown
+**Related Flow**: See [User Flows](../user-flows.md#authentication-flow)
+```
+
+### Design System Reference
+```markdown
+See `docs/front-end-spec.md` for color palette and typography
+```
+
+### Task Registry Integration
+```json
+{
+  "frontend_task_001": {
+    "design_reference": "designs/wireframes/login-page.md"
+  }
+}
+```
+
+## Example Wireframes
+
+### Simple Page Example
+See: `designs/wireframes/login-page.md`
+
+### Complex Dashboard Example
+See: `designs/wireframes/dashboard.md`
+
+### Modal/Drawer Example
+See: `designs/wireframes/user-profile-modal.md`
+
+## See Also
+- [User Flows Template](user-flows.template) - Mermaid flow diagrams
+- [state.json Template](state.json.template) - Design phase tracking
+- [CLAUDE.md - Design Phase](../CLAUDE.md#phase-1-design) - Design workflow

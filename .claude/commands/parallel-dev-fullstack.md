@@ -12,11 +12,56 @@ Execute all frontend and backend tasks in parallel following the dependency grap
 - Fullstack dependency graph exists in task_registry.json
 - Design artifacts available (wireframes, user flows)
 
+## File Format References
+This command reads and updates two central JSON files:
+- **📄 [state.json Template](../.claude/templates/state.json.template)** - Global state tracking
+- **📄 [task_registry.json Template](../.claude/templates/task_registry.json.template)** - Task definitions and dependencies
+
+Refer to these templates for complete field definitions and usage examples.
+
 ## Steps
 
-### 1. Load Configuration
+### 1. Load Configuration and Check State
+
+#### 1.1 Load Task Registry
 Read execution_order from task_registry.json.
 Parse workers argument (default: 5).
+
+#### 1.2 Check Existing State
+Check if `.claude_tasks/state.json` exists:
+- If exists: Resume from last completed wave
+- If not exists: Start from Wave 1
+
+**📄 State File Format**: See [state.json Template](../.claude/templates/state.json.template) for complete structure.
+
+**Key fields used**:
+- `development_phase.status`: "not_started" | "in_progress" | "completed"
+- `development_phase.current_wave`: Current wave number
+- `development_phase.completed_waves`: Number of completed waves
+- `development_phase.completed_tasks`: Array of completed task IDs
+- `development_phase.failed_tasks`: Array of failed task IDs
+- `development_phase.workers`: Worker pool size
+- `development_phase.wave_progress[N]`: Per-wave execution details
+
+#### 1.3 Resume Logic
+If resuming (state.json exists and development_phase.status == "in_progress"):
+- Read `development_phase.current_wave` and `development_phase.completed_waves`
+- Output: "🔄 Resuming from Wave {current_wave} (Waves 1-{completed_waves} already complete)"
+- Output: "📊 Progress: {completed_tasks.length} tasks completed, {failed_tasks.length} failed"
+- Skip completed waves (waves 1 to completed_waves)
+- For current wave in progress:
+  - Check task_registry.json for tasks with status="completed" in this wave
+  - Read `wave_progress[current_wave].current_batch` to determine batch position
+  - Only process remaining batches in current wave
+  - Continue from first incomplete batch
+
+If starting fresh (state.json doesn't exist or development_phase.status == "not_started"):
+- Output: "🚀 Starting fullstack development from Wave 1"
+- Initialize state.json with development_phase structure
+- Set `development_phase.status = "in_progress"`
+- Set `development_phase.current_wave = 1`
+- Set `development_phase.completed_waves = 0`
+- Start from Wave 1, Batch 1
 
 ### 2. Process Each Wave (Serial Waves, Parallel Batches)
 
@@ -38,6 +83,63 @@ Determine task types in current wave:
 - Mixed wave: Use appropriate developer for each task type
 
 #### 2.2 Create Developer Subagents for Wave
+
+**State Management via Python Scripts**:
+After EACH subagent task completes, use Python scripts to update state:
+
+**📄 Script Reference**: See [.claude/scripts/README.md](../.claude/scripts/README.md) for complete API documentation.
+
+**For Successful Task Completion**:
+```python
+from utils import ProjectManager
+
+manager = ProjectManager()
+manager.complete_task_full(
+    task_id="FE_auth_LoginForm",  # Task ID from task_registry.json
+    implementation_file="src/components/auth/LoginForm.tsx",
+    test_file="src/components/auth/LoginForm.test.tsx",
+    test_coverage=95,  # Percentage
+    duration_minutes=12.5
+)
+```
+
+**For Failed Task**:
+```python
+from utils import ProjectManager
+
+manager = ProjectManager()
+manager.fail_task_full(
+    task_id="FE_auth_LoginForm",
+    error="Test coverage below 80% threshold"
+)
+```
+
+This automatically updates both:
+- `task_registry.json`: Task status, files, coverage, duration
+- `state.json`: Adds task_id to completed_tasks or failed_tasks array
+
+#### 2.3 Batch Completion
+After each batch completes, update batch progress:
+
+```python
+from utils import ProjectManager
+
+manager = ProjectManager()
+
+# After batch completes
+completed = ["FE_auth_LoginForm", "FE_auth_RegisterForm", "FE_auth_PasswordReset"]
+failed = []  # Task IDs that failed in this batch
+
+manager.complete_batch(
+    wave_number=3,
+    completed_tasks=completed,
+    failed_tasks=failed
+)
+```
+
+This updates `state.json`:
+- Increments `wave_progress[N].completed` counter
+- Increments `wave_progress[N].current_batch` counter
 
 **CRITICAL - BATCH EXECUTION WITHIN WAVE**:
 - Divide wave tasks into batches of size = worker count
@@ -186,12 +288,34 @@ Task: Implement generateRefreshToken function with TDD
 </subagent_task>
 
 [Wait for ALL 5 subagents in Batch 1 to complete]
+
+**Update State After Batch 1**:
+```python
+from utils import ProjectManager
+manager = ProjectManager()
+manager.complete_batch(
+    wave_number=3,
+    completed_tasks=["backend_task_020", "backend_task_021", "backend_task_022", "backend_task_023", "backend_task_024"],
+    failed_tasks=[]  # Add any failed task IDs here
+)
+```
+
 ✓ Batch 1/6 complete: 5/5 tasks (backend_task_020-024)
 
 Batch 2/6: Creating 5 developer subagents:
 [5 <subagent_task> blocks for backend_task_025-029]
 
 [Wait for Batch 2 to complete]
+
+**Update State After Batch 2**:
+```python
+manager.complete_batch(
+    wave_number=3,
+    completed_tasks=["backend_task_025", "backend_task_026", "backend_task_027", "backend_task_028", "backend_task_029"],
+    failed_tasks=[]
+)
+```
+
 ✓ Batch 2/6 complete: 5/5 tasks (backend_task_025-029)
 
 Batch 3/6: Creating 5 developer subagents:
@@ -216,7 +340,26 @@ Batch 6/6: Creating 2 developer subagents:
 [2 <subagent_task> blocks for backend_task_045-046]
 
 [Wait for Batch 6 to complete]
+
+**Update State After Batch 6**:
+```python
+manager.complete_batch(
+    wave_number=3,
+    completed_tasks=["backend_task_045", "backend_task_046"],
+    failed_tasks=[]
+)
+```
+
 ✓ Batch 6/6 complete: 2/2 tasks (backend_task_045-046)
+
+**Complete Wave 3**:
+```python
+result = manager.complete_wave_full(wave_number=3)
+if result['success']:
+    print(f"✓ Wave 3 complete: {result['completed']}/{result['total_tasks']} tasks")
+else:
+    print(f"❌ Wave 3 incomplete: {result['incomplete_tasks']}")
+```
 
 ✓ Wave 3 complete: 27/27 tasks across 6 batches (100% coverage)
 
@@ -248,21 +391,65 @@ Batch 6/6: Creating 2 developer subagents:
 - ✅ REQUIRED: Process all batches until wave complete (100% coverage)
 
 **Verification Required**:
-1. For each wave:
+1. **At startup**:
+   - Use Python script to check resume status:
+     ```python
+     from utils import ProjectManager
+     manager = ProjectManager()
+     status = manager.check_resume_status()
+     if status['can_resume']:
+         print(f"🔄 Resuming from wave {status['current_wave']}")
+     else:
+         print("🚀 Starting fresh")
+     ```
+   - Skip waves 1 to completed_waves if resuming
+
+2. For each wave:
    - Count tasks: `wave_task_count = tasks in wave [N]`
    - Calculate batches: `num_batches = ceil(wave_task_count / workers)`
    - Output: "Wave [N]: {wave_task_count} tasks, workers={workers}, {num_batches} batches"
-2. For each batch in wave:
+   - Initialize wave:
+     ```python
+     manager.start_wave(
+         wave_number=N,
+         category="backend",  # or "frontend" or "mixed"
+         total_tasks=wave_task_count,
+         total_batches=num_batches
+     )
+     ```
+
+3. For each batch in wave:
    - Calculate batch size: `batch_size = min(workers, remaining_tasks)`
    - Output: "Batch {i}/{num_batches}: Creating {batch_size} developer subagents:"
    - **Create {batch_size} complete `<subagent_task>` blocks in ONE response**
    - Each block must be complete with full task details
    - ALL {batch_size} blocks must be in the SAME response
    - Wait for ALL subagents in current batch to complete
+   - **After each task completes, use Python script** (shown in section 2.2)
+   - **After batch completes, use Python script**:
+     ```python
+     manager.complete_batch(
+         wave_number=N,
+         completed_tasks=[list of completed task IDs],
+         failed_tasks=[list of failed task IDs]
+     )
+     ```
    - Confirm: "✓ Batch {i}/{num_batches} complete: {batch_size}/{batch_size} tasks"
-3. After all batches in wave:
+   - Confirm: "💾 State saved: {completed} total tasks completed"
+
+4. After all batches in wave:
+   - **Use Python script to complete wave**:
+     ```python
+     result = manager.complete_wave_full(wave_number=N)
+     if result['success']:
+         print(f"✓ Wave {N} complete: {result['completed']}/{result['total_tasks']} tasks")
+     else:
+         print(f"❌ Wave {N} has incomplete tasks: {result['incomplete_tasks']}")
+     ```
    - Confirm: "✓ Wave [N] complete: {wave_task_count}/{wave_task_count} tasks across {num_batches} batches (100% coverage)"
-4. Proceed to next wave
+   - Confirm: "💾 Wave [N] saved to state.json"
+
+5. Proceed to next wave
 
 **For backend tasks:**
 ```
@@ -419,22 +606,57 @@ Batch 3: 7 tasks created simultaneously
 ✓ Wave complete: 27/27 tasks
 ```
 
-#### 2.4 Verify Batch Results
+#### 2.4 Verify Batch Results and Update State
 
-After each batch completes, verify results:
+After each batch completes:
+
+**Verify Results**:
 - ✓ Check all tests pass for tasks in batch
 - ✓ Verify implementations match specifications
 - ✓ For frontend: verify against wireframes
 - ✓ For backend API: verify OpenAPI docs generated
 - ✓ Confirm no breaking changes to dependencies
-- ✓ Mark tasks as completed or failed in task_registry.json
+
+**Update Task Status**:
+For each task in batch, update task_registry.json:
+- Set `status = "completed"` or `"failed"`
+- Add `completed_at` timestamp (ISO 8601)
+- Add `duration_minutes`, `test_coverage` percentage
+- Add `implementation_file`, `test_file` paths
+- Add `error` message if failed
+
+**Update State Progress**:
+After batch verification, update state.json:
+- Append completed task IDs to `development_phase.completed_tasks` array
+- Append failed task IDs to `development_phase.failed_tasks` array
+- Increment `development_phase.wave_progress[N].completed` by batch_size
+- Increment `development_phase.wave_progress[N].current_batch`
+- Update `metadata.last_updated` timestamp
+
+**📄 See**: [task_registry.json Template](../.claude/templates/task_registry.json.template#update-task-status-after-completion) and [state.json Template](../.claude/templates/state.json.template#development_phase) for complete field definitions.
 
 #### 2.5 Update Progress After Wave
 
 After all batches in wave complete:
-- Update state.json with current wave completion
-- Save task_registry.json with task statuses
-- Log wave summary (completed/failed counts)
+
+**Update Wave Status**:
+Update state.json development_phase:
+- Increment `completed_waves` (from N to N+1)
+- Increment `current_wave` (from N to N+1)
+- Set `wave_progress[N].status = "completed"`
+- Add `wave_progress[N].completed_at` timestamp
+- Add `wave_progress[N].duration_minutes`
+- Initialize `wave_progress[N+1]` with status="pending"
+- Update `metadata.last_updated` timestamp
+
+**📄 See**: [state.json Template](../.claude/templates/state.json.template#wave_progress-per-wave) for wave_progress field definitions.
+
+**Save and Log**:
+- Save task_registry.json with all task statuses
+- Save state.json with development_phase.completed_waves updated
+- Output: "✅ Wave 3 complete and saved to state.json"
+- Output: "📊 Progress: {development_phase.completed_tasks.length} tasks completed, {development_phase.failed_tasks.length} failed"
+- Output: "⏭️  Ready to proceed to Wave 4"
 - Proceed to next wave
 
 ### 3. Cross-Stack Integration Validation
@@ -528,6 +750,11 @@ Output:
 ```
 === Fullstack Parallel Development Summary ===
 
+Session Info:
+  Start mode: [Fresh start | Resumed from Wave N]
+  State file: state.json [Created | Updated]
+  Task registry: task_registry.json [Updated]
+
 Design Phase:
   User flows: ✓ designs/user-flows.md
   Wireframes: ✓ designs/wireframes/ ([N] pages)
@@ -556,11 +783,12 @@ Frontend Development:
 
 Execution Timeline:
   Wave 1 (Backend Utils + Shared Components): [N] tasks
-    - Batches: [B] batches (max 10 tasks per batch)
-    - Batch 1: 10/10 tasks ✓
-    - Batch 2: 10/10 tasks ✓ (if applicable)
+    - Batches: [B] batches (size = workers)
+    - Batch 1: {batch_size}/{batch_size} tasks ✓ (state saved)
+    - Batch 2: {batch_size}/{batch_size} tasks ✓ (state saved)
     - ... (all batches)
     ✓ Wave 1 complete: [N]/[N] (100% coverage)
+    💾 Wave 1 saved to state.json
     
   Wave 2 (Backend Repositories): [M] tasks
     - Batches: [B] batches
@@ -592,6 +820,8 @@ Execution Timeline:
 
 ✓ ALL WAVES: Serial execution with batched parallelism, 100% task coverage
 ✓ Total execution: [T] tasks across [M] waves
+💾 Final state saved: state.json (development_phase.completed_waves: [M], status: "completed")
+💾 All task statuses saved: task_registry.json
 
 Cross-Stack Integration:
   ✓ API contracts validated: [N] integrations
@@ -833,10 +1063,16 @@ Generated: [TIMESTAMP]
 
 ## Important Rules
 - **CRITICAL**: Waves execute SERIALLY (one at a time, respecting dependencies)
-- **BATCHING**: Within each wave, divide tasks into batches of max 10 tasks
+- **RESUME CAPABILITY**: Check state.json.development_phase at startup, skip completed waves
+- **BATCHING**: Within each wave, divide tasks into batches of size = workers
 - **BATCH PARALLELISM**: Within each batch, ALL tasks execute in PARALLEL
 - **BATCH COMPLETION**: Wait for current batch to complete before starting next batch
 - **WAVE COMPLETION**: Wait for current wave to complete before starting next wave
+- **STATE PERSISTENCE**: 
+  - Update task_registry.json: set task.status after each task completes
+  - Update state.json: append to development_phase.completed_tasks after each task
+  - Update state.json: increment wave_progress counters after each batch
+  - Update state.json: increment development_phase.completed_waves after each wave
 - **Verify counts**: For each batch, tasks in batch = subagents created = tasks completed
 - Use @backend-developer for all backend tasks (API, Service, Repository, Validation, Utility layers)
 - Use @frontend-developer for all frontend tasks (Pages and Components)

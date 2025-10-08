@@ -28,67 +28,105 @@ designs/                       # Design artifacts (generated)
 
 ## State Files Format
 
+The project uses two central JSON files for state management and task tracking. **IMPORTANT**: These files should be updated using Python scripts, not manually edited.
+
 ### state.json
+Global state tracking file for all workflow phases. Supports checkpoint recovery and resuming from interruptions.
+
+**📄 See complete format specification**: [state.json Template](.claude/templates/state.json.template)
+
+**📄 Python API for updates**: [State Management Scripts](.claude/scripts/README.md)
+
+**Key sections**:
+- `design_phase`: User flows and wireframes status
+- `decomposition_phase`: Frontend/backend decomposition progress
+- `dependency_phase`: Dependency analysis status
+- `development_phase`: Wave-by-wave execution progress
+- `metadata`: Timestamps and project info
+
+**How to update** (use Python scripts, NOT manual JSON edits):
+```python
+from state_manager import StateManager
+
+manager = StateManager()
+
+# Complete design phase
+manager.complete_wireframes(wireframes_count=8, validation_status="passed")
+
+# Start development
+manager.start_development(total_waves=10, workers=5)
+
+# Complete a task
+manager.complete_task("FE_auth_LoginForm")
+
+# Complete a wave
+manager.complete_wave(wave_number=1)
+```
+
+**Example structure**:
 ```json
 {
-  "design_phase": {
-    "status": "completed",
-    "user_flows_file": "designs/user-flows.md",
-    "wireframes_generated": true,
-    "wireframes_count": 8,
-    "validation_status": "passed",
-    "validation_report": "designs/validation-report.md"
-  },
-  "decomposition_phase": {
-    "status": "completed",
-    "frontend_status": "completed",
-    "backend_status": "completed",
-    "last_checkpoint": "backend_task_030",
-    "progress": {
-      "frontend": {
-        "total_modules": 5,
-        "total_pages": 12,
-        "total_components": 42
-      },
-      "backend": {
-        "total_modules": 4,
-        "total_functions": 35
-      }
-    }
-  },
   "development_phase": {
     "status": "in_progress",
     "current_wave": 5,
     "completed_waves": 4,
     "completed_tasks": ["backend_task_001", "frontend_task_001"],
-    "failed_tasks": []
-  },
-  "metadata": {
-    "created_at": "2025-01-15T10:00:00Z",
-    "last_updated": "2025-01-20T15:30:00Z"
+    "failed_tasks": [],
+    "wave_progress": {
+      "5": {
+        "status": "in_progress",
+        "tasks": 27,
+        "completed": 10,
+        "current_batch": 3
+      }
+    }
   }
 }
 ```
 
 ### task_registry.json
+Central task management file containing all frontend/backend tasks, dependencies, and execution order.
+
+**📄 See complete format specification**: [task_registry.json Template](.claude/templates/task_registry.json.template)
+
+**📄 Python API for updates**: [Task Registry Scripts](.claude/scripts/README.md)
+
+**Key sections**:
+- `tasks`: All frontend and backend tasks with metadata
+- `frontend_metadata`: Framework, language, component counts
+- `backend_metadata`: Framework, database, layer counts
+- `dependency_graph`: Dependencies and wave execution order
+
+**How to update** (use Python scripts, NOT manual JSON edits):
+```python
+from task_registry_manager import TaskRegistryManager
+
+manager = TaskRegistryManager()
+
+# Add a task
+manager.add_task("FE_auth_LoginForm", {
+    "name": "LoginForm Component",
+    "category": "frontend",
+    "type": "component",
+    "status": "pending"
+})
+
+# Update task status
+manager.update_task_status(
+    task_id="FE_auth_LoginForm",
+    status="completed",
+    implementation_file="src/components/auth/LoginForm.tsx",
+    test_coverage=95
+)
+
+# Set execution order
+manager.set_execution_order(waves=[...])
+```
+
+**Example task**:
 ```json
 {
   "tasks": {
-    "frontend_task_001": {
-      "id": "frontend_task_001",
-      "title": "LoginButton",
-      "level": 3,
-      "type": "component",
-      "category": "frontend",
-      "status": "completed",
-      "parent_id": "frontend_task_parent",
-      "children": [],
-      "dependencies": [],
-      "context_file": "contexts/frontend_task_001_context.md",
-      "component_type": "button",
-      "props": ["onClick", "disabled", "loading"],
-      "design_reference": "designs/wireframes/login-page.md"
-    },
     "backend_task_001": {
       "id": "backend_task_001",
       "title": "login_user",
@@ -101,61 +139,23 @@ designs/                       # Design artifacts (generated)
       "route": "/api/auth/login",
       "dependencies": ["backend_task_002", "backend_task_003"]
     }
-  },
-  "frontend_metadata": {
-    "framework": "React",
-    "total_components": 42
-  },
-  "backend_metadata": {
-    "framework": "FastAPI",
-    "database": "PostgreSQL",
-    "total_functions": 35
-  },
-  "dependency_graph": {
-    "frontend_dependencies": {},
-    "backend_dependencies": {},
-    "cross_stack_dependencies": {
-      "frontend_task_050": ["backend_task_010"]
-    },
-    "execution_order": [
-      {"wave": 1, "category": "backend_foundation", "tasks": ["backend_task_001"]},
-      {"wave": 2, "category": "backend_api", "tasks": ["backend_task_010"]},
-      {"wave": 3, "category": "frontend_foundation", "tasks": ["frontend_task_001"]},
-      {"wave": 4, "category": "frontend_api", "tasks": ["frontend_task_050"]}
-    ]
   }
 }
 ```
 
 ## Task Context Template
-Each task context file follows this structure:
-```markdown
-# Task XXX: [Task Title]
+Each task context file provides detailed specifications for TDD implementation.
 
-## Task Overview
-[Description]
+**📄 See complete template**: [Task Context Template](.claude/templates/context-template.md)
 
-## Dependencies
-- task_XXX: [What this task provides]
+**Key sections**:
+- Task Overview and hierarchy
+- Dependencies
+- Component/Function specifications
+- TDD test cases
+- Related files and success criteria
 
-## Function Specification
-### Function Signature
-[Code block with signature]
-
-### Input Parameters
-- param: description
-
-### Return Value
-- type: description
-
-## TDD Test Cases
-### Test Case 1: [Name]
-[Test code]
-
-## Related Files
-- Target file: path/to/file.py
-- Dependency files: path/to/dep.py
-```
+**File location**: `.claude_tasks/contexts/{task_id}_context.md`
 
 ## Workflow Phases
 
@@ -214,11 +214,85 @@ Each task context file follows this structure:
 1. Execute tasks in waves following dependency graph
 2. Backend waves use `@backend-developer` (TDD for API/service/repository)
 3. Frontend waves use `@frontend-developer` (TDD for React/Vue components)
-4. Save checkpoint after each wave
+4. Update state after each task, batch, and wave using Python scripts
 
 **Agents Used:**
 - `@backend-developer` - Implements backend functions with TDD
 - `@frontend-developer` - Implements frontend components with TDD
+
+**State Updates (use Python scripts)**:
+```python
+from utils import ProjectManager
+
+manager = ProjectManager()
+
+# After task completes
+manager.complete_task_full(
+    task_id="FE_auth_LoginForm",
+    implementation_file="src/components/auth/LoginForm.tsx",
+    test_file="src/components/auth/LoginForm.test.tsx",
+    test_coverage=95,
+    duration_minutes=12.5
+)
+
+# After batch completes
+manager.complete_batch(
+    wave_number=1,
+    completed_tasks=["task1", "task2", "task3"],
+    failed_tasks=[]
+)
+
+# After wave completes
+result = manager.complete_wave_full(wave_number=1)
+```
+
+## Python Script Usage
+
+**CRITICAL**: Always use Python scripts to update state.json and task_registry.json. Never manually edit these JSON files.
+
+**📄 Complete API Documentation**: [.claude/scripts/README.md](.claude/scripts/README.md)
+
+**Available Scripts**:
+- `state_manager.py` - Manages state.json operations
+- `task_registry_manager.py` - Manages task_registry.json operations
+- `utils.py` - High-level convenience functions
+
+**Common Operations**:
+```python
+# 1. Check project status
+from utils import print_dashboard
+print_dashboard()
+
+# 2. Complete a task (updates both files atomically)
+from utils import ProjectManager
+manager = ProjectManager()
+manager.complete_task_full(
+    task_id="FE_auth_LoginForm",
+    implementation_file="src/components/auth/LoginForm.tsx",
+    test_file="src/components/auth/LoginForm.test.tsx",
+    test_coverage=95
+)
+
+# 3. Check resume status
+status = manager.check_resume_status()
+if status['can_resume']:
+    next_batch = manager.get_next_batch_tasks(
+        wave_number=status['current_wave'],
+        batch_size=5
+    )
+
+# 4. Complete a wave with validation
+result = manager.complete_wave_full(wave_number=3)
+if not result['success']:
+    print(f"Incomplete tasks: {result['incomplete_tasks']}")
+```
+
+**Benefits**:
+- ✅ Atomic operations - both files updated consistently
+- ✅ Data validation - prevents invalid states
+- ✅ Error prevention - no JSON syntax errors
+- ✅ Convenience - high-level functions handle multiple operations
+- ✅ Type safety - Python type hints prevent errors
 
 ### Checkpoint Management
 - Save checkpoint after processing each batch

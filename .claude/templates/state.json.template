@@ -1,0 +1,240 @@
+# state.json Template
+
+## Overview
+`state.json` is the global state management file that tracks the progress of all phases in the fullstack development workflow. It supports checkpoint recovery and allows resuming from any interrupted phase.
+
+## File Location
+```
+.claude_tasks/state.json
+```
+
+## Complete Structure
+```json
+{
+  "design_phase": {
+    "status": "not_started | in_progress | user_flows_completed | completed",
+    "user_flows_file": "designs/user-flows.md",
+    "wireframes_generated": true,
+    "wireframes_count": 8,
+    "wireframes_directory": "designs/wireframes/",
+    "validation_status": "not_started | passed | failed",
+    "validation_report": "designs/validation-report.md"
+  },
+  "decomposition_phase": {
+    "status": "not_started | in_progress | completed",
+    "frontend_status": "not_started | in_progress | completed",
+    "backend_status": "not_started | in_progress | completed",
+    "last_checkpoint": "backend_task_030",
+    "progress": {
+      "frontend": {
+        "total_modules": 5,
+        "total_pages": 12,
+        "total_components": 42,
+        "last_processed_module": "authentication",
+        "last_processed_page": "login-page"
+      },
+      "backend": {
+        "total_modules": 4,
+        "total_services": 8,
+        "total_functions": 35,
+        "last_processed_module": "auth-service",
+        "last_processed_service": "AuthService"
+      }
+    }
+  },
+  "dependency_phase": {
+    "status": "not_started | in_progress | completed",
+    "total_waves": 8,
+    "frontend_internal_dependencies": true,
+    "backend_internal_dependencies": true,
+    "cross_stack_dependencies": true,
+    "execution_order_generated": true
+  },
+  "development_phase": {
+    "status": "not_started | in_progress | completed",
+    "current_wave": 5,
+    "completed_waves": 4,
+    "total_waves": 8,
+    "completed_tasks": ["backend_task_001", "backend_task_002", "frontend_task_001"],
+    "failed_tasks": ["backend_task_015"],
+    "workers": 5,
+    "wave_progress": {
+      "1": {
+        "status": "completed",
+        "category": "backend_foundation",
+        "tasks": 15,
+        "completed": 15,
+        "failed": 0,
+        "completed_at": "2025-10-08T10:30:00Z",
+        "duration_minutes": 8.5
+      },
+      "2": {
+        "status": "completed",
+        "category": "backend_api",
+        "tasks": 30,
+        "completed": 30,
+        "failed": 0,
+        "completed_at": "2025-10-08T11:15:00Z",
+        "duration_minutes": 15.2
+      },
+      "3": {
+        "status": "in_progress",
+        "category": "frontend_foundation",
+        "tasks": 27,
+        "completed": 10,
+        "failed": 0,
+        "current_batch": 3,
+        "total_batches": 6,
+        "started_at": "2025-10-08T11:20:00Z"
+      }
+    }
+  },
+  "metadata": {
+    "project_name": "My Fullstack App",
+    "created_at": "2025-10-08T10:00:00Z",
+    "last_updated": "2025-10-08T11:45:00Z",
+    "version": "1.0"
+  }
+}
+```
+
+## Field Descriptions
+
+### design_phase
+| Field | Type | Values | Description |
+|-------|------|--------|-------------|
+| `status` | string | `not_started`, `in_progress`, `user_flows_completed`, `completed` | Current design phase status |
+| `user_flows_file` | string | File path | Location of generated user flows |
+| `wireframes_generated` | boolean | `true`, `false` | Whether wireframes have been created |
+| `wireframes_count` | number | Integer | Number of wireframe pages generated |
+| `wireframes_directory` | string | Directory path | Location of wireframe files |
+| `validation_status` | string | `not_started`, `passed`, `failed` | Design validation status |
+| `validation_report` | string | File path | Location of validation report |
+
+### decomposition_phase
+| Field | Type | Values | Description |
+|-------|------|--------|-------------|
+| `status` | string | `not_started`, `in_progress`, `completed` | Overall decomposition status |
+| `frontend_status` | string | `not_started`, `in_progress`, `completed` | Frontend decomposition status |
+| `backend_status` | string | `not_started`, `in_progress`, `completed` | Backend decomposition status |
+| `last_checkpoint` | string | Task ID | Last processed task for resume |
+| `progress.frontend` | object | - | Frontend decomposition metrics |
+| `progress.backend` | object | - | Backend decomposition metrics |
+
+### dependency_phase
+| Field | Type | Values | Description |
+|-------|------|--------|-------------|
+| `status` | string | `not_started`, `in_progress`, `completed` | Dependency analysis status |
+| `total_waves` | number | Integer | Total number of execution waves |
+| `frontend_internal_dependencies` | boolean | `true`, `false` | Frontend deps analyzed |
+| `backend_internal_dependencies` | boolean | `true`, `false` | Backend deps analyzed |
+| `cross_stack_dependencies` | boolean | `true`, `false` | Cross-stack deps analyzed |
+| `execution_order_generated` | boolean | `true`, `false` | Wave execution order created |
+
+### development_phase
+| Field | Type | Values | Description |
+|-------|------|--------|-------------|
+| `status` | string | `not_started`, `in_progress`, `completed` | Development phase status |
+| `current_wave` | number | Integer | Currently executing wave |
+| `completed_waves` | number | Integer | Number of completed waves |
+| `total_waves` | number | Integer | Total waves to execute |
+| `completed_tasks` | array | Task IDs | Array of completed task IDs |
+| `failed_tasks` | array | Task IDs | Array of failed task IDs |
+| `workers` | number | Integer | Number of parallel workers |
+| `wave_progress` | object | - | Per-wave execution details |
+
+### wave_progress (per wave)
+| Field | Type | Description |
+|-------|------|-------------|
+| `status` | string | `pending`, `in_progress`, `completed`, `failed` |
+| `category` | string | Wave category (e.g., "backend_foundation") |
+| `tasks` | number | Total tasks in wave |
+| `completed` | number | Number of completed tasks |
+| `failed` | number | Number of failed tasks |
+| `current_batch` | number | Current batch being processed (if in_progress) |
+| `total_batches` | number | Total batches in wave |
+| `started_at` | string | ISO 8601 timestamp |
+| `completed_at` | string | ISO 8601 timestamp (if completed) |
+| `duration_minutes` | number | Execution duration (if completed) |
+
+## Status Transitions
+
+### Design Phase
+```
+not_started → in_progress → user_flows_completed → completed
+                                     ↓
+                              (wireframes generated)
+```
+
+### Decomposition Phase
+```
+not_started → in_progress → completed
+     ↓
+  frontend_status: not_started → in_progress → completed
+  backend_status:  not_started → in_progress → completed
+```
+
+### Development Phase
+```
+not_started → in_progress → completed
+     ↓
+  Wave 1: pending → in_progress → completed
+  Wave 2: pending → in_progress → completed
+  ...
+```
+
+## Usage Examples
+
+### Initialize Fresh Project
+```json
+{
+  "design_phase": {"status": "not_started"},
+  "decomposition_phase": {"status": "not_started"},
+  "dependency_phase": {"status": "not_started"},
+  "development_phase": {"status": "not_started"},
+  "metadata": {
+    "created_at": "2025-10-08T10:00:00Z",
+    "last_updated": "2025-10-08T10:00:00Z"
+  }
+}
+```
+
+### Resume from Interrupted Development
+```json
+{
+  "development_phase": {
+    "status": "in_progress",
+    "current_wave": 3,
+    "completed_waves": 2,
+    "completed_tasks": ["backend_task_001", "backend_task_002"],
+    "wave_progress": {
+      "3": {
+        "status": "in_progress",
+        "tasks": 27,
+        "completed": 10,
+        "current_batch": 3
+      }
+    }
+  }
+}
+```
+
+## Best Practices
+
+1. **Always Update `metadata.last_updated`**: Update timestamp on every state change
+2. **Append to Arrays**: Add to `completed_tasks` and `failed_tasks` arrays, don't replace
+3. **Atomic Updates**: Update related fields together (e.g., `current_wave` and `wave_progress`)
+4. **Preserve History**: Keep completed wave data for reporting and analysis
+5. **Checkpoint After Each Batch**: Save state.json after each batch completes
+6. **Use ISO 8601 Timestamps**: All timestamps should be in ISO 8601 format with timezone
+
+## Integration with task_registry.json
+
+- `completed_tasks` array contains task IDs that have `status: "completed"` in task_registry.json
+- `failed_tasks` array contains task IDs that have `status: "failed"` in task_registry.json
+- Wave execution order comes from `task_registry.json.dependency_graph.execution_order`
+- Total waves count matches `execution_order` array length
+
+## See Also
+- [task_registry.json Template](.claude/templates/task_registry.json.template)
+- [CLAUDE.md - Workflow Phases](../CLAUDE.md#workflow-phases)

@@ -67,32 +67,23 @@ Check that `designs/user-flows.md` contains:
 - All identified pages/screens
 
 ### 5. Initialize State
-Create `.claude_tasks/state.json`:
-```json
-{
-  "design_phase": {
-    "status": "user_flows_completed",
-    "user_flows_file": "designs/user-flows.md",
-    "wireframes_generated": false,
-    "wireframes_count": 0
-  },
-  "decomposition_phase": {
-    "status": "not_started",
-    "frontend_status": "not_started",
-    "backend_status": "not_started",
-    "last_checkpoint": null
-  },
-  "development_phase": {
-    "status": "not_started",
-    "completed_tasks": 0,
-    "failed_tasks": 0
-  },
-  "metadata": {
-    "created_at": "[CURRENT_TIMESTAMP]",
-    "last_updated": "[CURRENT_TIMESTAMP]"
-  }
-}
+Use Python script to initialize state after user flows are generated.
+
+**📄 Script Reference**: See [.claude/scripts/README.md](../.claude/scripts/README.md)
+
+**Python command**:
+```python
+from state_manager import StateManager
+
+manager = StateManager()
+manager.init_design_phase(user_flows_file="designs/user-flows.md")
 ```
+
+This creates `.claude_tasks/state.json` with:
+- `design_phase.status = "user_flows_completed"`
+- `design_phase.user_flows_file = "designs/user-flows.md"`
+- All other phases initialized to "not_started"
+- Metadata timestamps automatically set
 
 ### 6. Output Summary
 Print:

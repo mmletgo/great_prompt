@@ -1,0 +1,362 @@
+# task_registry.json Template
+
+## Overview
+`task_registry.json` is the central task management file that contains all frontend and backend tasks, their relationships, dependencies, and execution order. It's generated during the decomposition phase and updated during development.
+
+## File Location
+```
+.claude_tasks/task_registry.json
+```
+
+## Complete Structure
+```json
+{
+  "tasks": {
+    "frontend_task_001": {
+      "id": "frontend_task_001",
+      "title": "LoginButton",
+      "level": 3,
+      "type": "component",
+      "category": "frontend",
+      "status": "completed",
+      "parent_id": "frontend_task_002",
+      "children": [],
+      "dependencies": [],
+      "context_file": ".claude_tasks/contexts/frontend_task_001_context.md",
+      "component_type": "button",
+      "props": ["onClick", "disabled", "loading"],
+      "state": ["isLoading"],
+      "design_reference": "designs/wireframes/login-page.md",
+      "implementation_file": "src/components/LoginButton.tsx",
+      "test_file": "src/components/__tests__/LoginButton.test.tsx",
+      "completed_at": "2025-10-08T11:30:00Z",
+      "duration_minutes": 2.3,
+      "test_coverage": 95
+    },
+    "backend_task_001": {
+      "id": "backend_task_001",
+      "title": "login_user",
+      "level": 3,
+      "type": "function",
+      "category": "backend",
+      "status": "completed",
+      "parent_id": "backend_task_010",
+      "children": [],
+      "dependencies": ["backend_task_002", "backend_task_003"],
+      "context_file": ".claude_tasks/contexts/backend_task_001_context.md",
+      "function_type": "endpoint",
+      "layer": "api",
+      "http_method": "POST",
+      "route": "/api/auth/login",
+      "request_body": {"email": "string", "password": "string"},
+      "response_body": {"token": "string", "user": "object"},
+      "implementation_file": "src/api/auth.py",
+      "test_file": "tests/test_auth.py",
+      "completed_at": "2025-10-08T10:25:00Z",
+      "duration_minutes": 3.1,
+      "test_coverage": 88
+    }
+  },
+  "frontend_metadata": {
+    "framework": "React",
+    "language": "TypeScript",
+    "total_modules": 5,
+    "total_pages": 12,
+    "total_components": 42,
+    "modules": [
+      {
+        "id": "auth_module",
+        "name": "Authentication Module",
+        "pages": ["login-page", "register-page"],
+        "component_count": 8
+      }
+    ]
+  },
+  "backend_metadata": {
+    "framework": "FastAPI",
+    "language": "Python",
+    "database": "PostgreSQL",
+    "total_modules": 4,
+    "total_services": 8,
+    "total_functions": 35,
+    "modules": [
+      {
+        "id": "auth_service",
+        "name": "Authentication Service",
+        "services": ["AuthService"],
+        "function_count": 10
+      }
+    ],
+    "layers": {
+      "api": 12,
+      "service": 10,
+      "repository": 8,
+      "validation": 3,
+      "utility": 2
+    }
+  },
+  "dependency_graph": {
+    "frontend_dependencies": {
+      "frontend_task_050": ["frontend_task_001", "frontend_task_002"]
+    },
+    "backend_dependencies": {
+      "backend_task_001": ["backend_task_002", "backend_task_003"]
+    },
+    "cross_stack_dependencies": {
+      "frontend_task_050": ["backend_task_010"]
+    },
+    "execution_order": [
+      {
+        "wave": 1,
+        "category": "backend_foundation",
+        "description": "Backend utilities and validation",
+        "tasks": ["backend_task_002", "backend_task_003"]
+      },
+      {
+        "wave": 2,
+        "category": "backend_repository",
+        "description": "Backend data access layer",
+        "tasks": ["backend_task_020", "backend_task_021"]
+      },
+      {
+        "wave": 3,
+        "category": "backend_service",
+        "description": "Backend business logic",
+        "tasks": ["backend_task_030", "backend_task_031"]
+      },
+      {
+        "wave": 4,
+        "category": "backend_api",
+        "description": "Backend API endpoints",
+        "tasks": ["backend_task_001", "backend_task_010"]
+      },
+      {
+        "wave": 5,
+        "category": "frontend_foundation",
+        "description": "Shared frontend components",
+        "tasks": ["frontend_task_001", "frontend_task_002"]
+      },
+      {
+        "wave": 6,
+        "category": "frontend_pages",
+        "description": "Frontend page components",
+        "tasks": ["frontend_task_040", "frontend_task_041"]
+      },
+      {
+        "wave": 7,
+        "category": "frontend_api_integration",
+        "description": "Frontend components with API calls",
+        "tasks": ["frontend_task_050", "frontend_task_051"]
+      },
+      {
+        "wave": 8,
+        "category": "integration_tests",
+        "description": "End-to-end integration tests",
+        "tasks": ["integration_test_001"]
+      }
+    ]
+  }
+}
+```
+
+## Field Descriptions
+
+### Task Object (Common Fields)
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `id` | string | ✓ | Unique task identifier |
+| `title` | string | ✓ | Human-readable task name |
+| `level` | number | ✓ | Hierarchy level (1=Module, 2=Page/Service, 3=Component/Function) |
+| `type` | string | ✓ | Task type (see Task Types below) |
+| `category` | string | ✓ | `frontend` or `backend` |
+| `status` | string | ✓ | Current status (see Status Values below) |
+| `parent_id` | string | - | Parent task ID (for hierarchy) |
+| `children` | array | ✓ | Child task IDs |
+| `dependencies` | array | ✓ | Task IDs this task depends on |
+| `context_file` | string | ✓ | Path to task context markdown file |
+| `implementation_file` | string | - | Path to implementation file |
+| `test_file` | string | - | Path to test file |
+| `completed_at` | string | - | ISO 8601 timestamp (when completed) |
+| `duration_minutes` | number | - | Execution time (when completed) |
+| `test_coverage` | number | - | Test coverage percentage (when completed) |
+
+### Frontend Task Fields
+| Field | Type | Description |
+|-------|------|-------------|
+| `component_type` | string | Component category (e.g., "button", "form", "page") |
+| `props` | array | Component prop names |
+| `state` | array | Component state variable names |
+| `design_reference` | string | Path to wireframe/design file |
+
+### Backend Task Fields
+| Field | Type | Description |
+|-------|------|-------------|
+| `function_type` | string | `endpoint`, `service`, `repository`, `validator`, `util` |
+| `layer` | string | Architecture layer (api/service/repository/validation/utility) |
+| `http_method` | string | HTTP method (for endpoint type) |
+| `route` | string | API route (for endpoint type) |
+| `request_body` | object | Request schema (for endpoint type) |
+| `response_body` | object | Response schema (for endpoint type) |
+
+## Task Types
+
+### Frontend
+- **module**: Level 1 - UI module grouping
+- **page**: Level 2 - Individual page
+- **component**: Level 3 - React/Vue component
+
+### Backend
+- **module**: Level 1 - Service module grouping
+- **service**: Level 2 - Business logic service class
+- **function**: Level 3 - Individual function
+
+## Status Values
+
+| Status | Description | When to Use |
+|--------|-------------|-------------|
+| `pending` | Not yet decomposed | Initial state for Level 1-2 tasks |
+| `decomposed` | Broken down into subtasks | After decomposition, before development |
+| `ready` | Ready for development | Level 3 task ready to implement |
+| `in_progress` | Currently being developed | During TDD implementation |
+| `completed` | Development finished | All tests pass |
+| `failed` | Development failed | Tests failed or error occurred |
+
+## Function Types (Backend)
+
+| Type | Layer | Description | Example |
+|------|-------|-------------|---------|
+| `endpoint` | API | HTTP route handler | `POST /api/auth/login` |
+| `service` | Service | Business logic | `validateCredentials()` |
+| `repository` | Repository | Database access | `findUserByEmail()` |
+| `validator` | Validation | Input validation | `validateEmailFormat()` |
+| `util` | Utility | Helper functions | `generateToken()` |
+
+## Dependency Graph
+
+### frontend_dependencies
+```json
+{
+  "child_task_id": ["dependency_task_id_1", "dependency_task_id_2"]
+}
+```
+Child task can only start after all dependency tasks complete.
+
+### backend_dependencies
+Same structure as frontend_dependencies, for backend-only relationships.
+
+### cross_stack_dependencies
+```json
+{
+  "frontend_task_id": ["backend_task_id"]
+}
+```
+Frontend task depends on backend task (e.g., frontend component needs backend API).
+
+### execution_order
+Array of waves defining serial execution order:
+```json
+{
+  "wave": 1,
+  "category": "backend_foundation",
+  "description": "Wave description",
+  "tasks": ["backend_task_002", "backend_task_003"]
+}
+```
+
+**Wave Categories**:
+- `backend_foundation`: Utilities, validators
+- `backend_repository`: Data access layer
+- `backend_service`: Business logic
+- `backend_api`: API endpoints
+- `frontend_foundation`: Shared components
+- `frontend_pages`: Page components
+- `frontend_api_integration`: Components with API calls
+- `integration_tests`: E2E tests
+
+## Usage Examples
+
+### Add New Frontend Component Task
+```json
+{
+  "frontend_task_042": {
+    "id": "frontend_task_042",
+    "title": "UserProfile",
+    "level": 3,
+    "type": "component",
+    "category": "frontend",
+    "status": "ready",
+    "parent_id": "frontend_page_005",
+    "children": [],
+    "dependencies": ["frontend_task_001"],
+    "context_file": ".claude_tasks/contexts/frontend_task_042_context.md",
+    "component_type": "page",
+    "props": ["userId"],
+    "design_reference": "designs/wireframes/profile-page.md"
+  }
+}
+```
+
+### Add New Backend Function Task
+```json
+{
+  "backend_task_035": {
+    "id": "backend_task_035",
+    "title": "getUserProfile",
+    "level": 3,
+    "type": "function",
+    "category": "backend",
+    "status": "ready",
+    "parent_id": "backend_service_003",
+    "children": [],
+    "dependencies": ["backend_task_020"],
+    "context_file": ".claude_tasks/contexts/backend_task_035_context.md",
+    "function_type": "service",
+    "layer": "service"
+  }
+}
+```
+
+### Update Task Status After Completion
+```json
+{
+  "backend_task_001": {
+    "status": "completed",
+    "implementation_file": "src/api/auth.py",
+    "test_file": "tests/test_auth.py",
+    "completed_at": "2025-10-08T10:25:00Z",
+    "duration_minutes": 3.1,
+    "test_coverage": 88
+  }
+}
+```
+
+## Best Practices
+
+1. **Consistent ID Naming**: Use `{category}_task_{number}` format
+2. **Preserve Hierarchy**: Level 1 → Level 2 → Level 3 relationships
+3. **Complete Dependencies**: All dependency task IDs must exist in tasks object
+4. **Update Status**: Change status as tasks progress through workflow
+5. **Add Timestamps**: Record `completed_at` when tasks finish
+6. **Track Coverage**: Record `test_coverage` percentage after TDD
+7. **Context Files**: Every Level 3 task must have a context file
+8. **Atomic Updates**: Update related fields together (status + completed_at + files)
+
+## Integration with state.json
+
+- Task statuses should sync with `state.json.development_phase.completed_tasks` array
+- Failed tasks should appear in `state.json.development_phase.failed_tasks` array
+- Wave execution order drives `state.json.development_phase.wave_progress`
+- Total task counts should match metadata totals
+
+## Generation Process
+
+1. **Design Phase** → wireframes generated
+2. **Frontend Decomposition** → frontend tasks created
+3. **Backend Decomposition** → backend tasks created
+4. **Dependency Analysis** → dependency_graph.execution_order generated
+5. **Development Phase** → task statuses updated
+
+## See Also
+- [state.json Template](.claude/templates/state.json.template)
+- [Task Context Template](.claude/templates/context-template.md)
+- [CLAUDE.md - Task Type Hierarchy](../CLAUDE.md#task-type-hierarchy)

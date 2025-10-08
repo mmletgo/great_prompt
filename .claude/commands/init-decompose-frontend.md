@@ -38,68 +38,40 @@ Examples:
 - Shared Components Module (Buttons, Forms, Modals)
 
 ### 3. Create Task Registry
-Create `.claude_tasks/task_registry.json`:
-```json
-{
-  "tasks": {
-    "frontend_task_001": {
-      "id": "frontend_task_001",
-      "title": "[Module Name]",
-      "level": 1,
-      "type": "module",
-      "category": "frontend",
-      "status": "pending",
-      "parent_id": null,
-      "children": [],
-      "dependencies": [],
-      "context_file": "contexts/frontend_task_001_context.md",
-      "design_references": [
-        "designs/wireframes/page1.md",
-        "designs/wireframes/page2.md"
-      ]
-    }
-  },
-  "frontend_metadata": {
-    "total_pages": 0,
-    "total_components": 0,
-    "framework": "extracted from architecture doc"
-  },
-  "dependency_graph": {
-    "execution_order": []
-  }
-}
-```
+Create `.claude_tasks/task_registry.json` with initial structure.
+
+**📄 Task Registry Format**: See [task_registry.json Template](../templates/task_registry.json.template)
+
+**Initialize with**:
+- Empty `tasks` object
+- `frontend_metadata` with framework and counters at 0
+- Empty `backend_metadata`
+- Empty `dependency_graph`
 
 ### 4. Update State
-Update `.claude_tasks/state.json`:
-```json
-{
-  "design_phase": {
-    "status": "completed"
-  },
-  "decomposition_phase": {
-    "status": "in_progress",
-    "frontend_status": "in_progress",
-    "backend_status": "not_started",
-    "current_level": 1,
-    "last_checkpoint": "frontend_task_XXX",
-    "progress": {
-      "frontend": {
-        "total_modules": 0,
-        "total_pages": 0,
-        "total_components": 0
-      },
-      "backend": {
-        "total_modules": 0,
-        "total_functions": 0
-      }
-    }
-  },
-  "development_phase": {
-    "status": "not_started"
-  }
-}
+Use Python scripts to update both state.json and task_registry.json:
+
+**📄 Script Reference**: See [.claude/scripts/README.md](../.claude/scripts/README.md)
+
+**Python commands**:
+```python
+from state_manager import StateManager
+from task_registry_manager import TaskRegistryManager
+
+state_mgr = StateManager()
+task_mgr = TaskRegistryManager()
+
+# Initialize frontend decomposition
+state_mgr.start_frontend_decomposition(total_modules=5)
+
+# Initialize frontend metadata
+task_mgr.init_frontend_metadata(
+    framework="React",
+    language="TypeScript"
+)
 ```
+
+**Updates applied**:
 
 ### 5. Output Summary
 Print:

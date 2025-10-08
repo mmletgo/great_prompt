@@ -68,15 +68,33 @@ Append to `.claude_tasks/task_registry.json`:
 ```
 
 ### 4. Update State
-```json
-{
-  "decomposition_phase": {
-    "frontend_status": "completed",
-    "backend_status": "in_progress",
-    "last_checkpoint": "backend_task_XXX"
-  }
-}
+Use Python scripts to update both state.json and task_registry.json:
+
+**📄 Script Reference**: See [.claude/scripts/README.md](../.claude/scripts/README.md)
+
+**Python commands**:
+```python
+from state_manager import StateManager
+from task_registry_manager import TaskRegistryManager
+
+state_mgr = StateManager()
+task_mgr = TaskRegistryManager()
+
+# Initialize backend decomposition
+state_mgr.start_backend_decomposition(total_modules=4)
+
+# Initialize backend metadata
+task_mgr.init_backend_metadata(
+    framework="FastAPI",
+    database="PostgreSQL",
+    language="Python"
+)
 ```
+
+**Updates applied**:
+- `decomposition_phase.status = "in_progress"`
+- `decomposition_phase.backend_status = "in_progress"`
+- Metadata timestamps automatically set
 
 ### 5. Output Summary
 ```

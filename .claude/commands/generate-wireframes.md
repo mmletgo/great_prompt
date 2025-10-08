@@ -227,43 +227,16 @@ Verify each wireframe includes:
 - [ ] INDEX.md exists and is properly formatted
 
 #### 5.5 Generate Validation Report
-Create `designs/WIREFRAME_VALIDATION.md`:
-```markdown
-# Wireframes Validation Report
+Create `designs/WIREFRAME_VALIDATION.md` with validation results.
 
-Generated: [TIMESTAMP]
-
-## Summary
-- Total wireframes: [N]
-- Passed validation: [M]
-- Issues found: [X]
-
-## Design Consistency
-✓ Component naming: Consistent
-✓ Layout structure: Consistent
-✓ State coverage: Complete
-⚠ [Issue description if any]
-
-## Completeness
-✓ All required sections present
-⚠ [Missing sections in specific files]
-
-## Cross-References
-✓ User flows coverage: 100%
-✓ Design system compliance: [percentage]
-⚠ [Mismatches if any]
-
-## Issues to Fix
-1. [Issue 1 - file: designs/wireframes/page-x.md]
-2. [Issue 2 - file: designs/wireframes/page-y.md]
-
-## Recommendations
-- [Recommendation 1]
-- [Recommendation 2]
-
-## Status
-[PASSED / NEEDS REVIEW / FAILED]
-```
+**Report sections**:
+- Summary: Total wireframes, passed, issues found
+- Design Consistency: Component naming, layout, state coverage
+- Completeness: Required sections present
+- Cross-References: User flows coverage, design system compliance
+- Issues to Fix: List of problems with file references
+- Recommendations: Improvement suggestions
+- Status: PASSED / NEEDS REVIEW / FAILED
 
 #### 4.6 Address Validation Issues
 If issues found:
@@ -273,49 +246,35 @@ If issues found:
 4. Repeat until all issues resolved
 
 ### 5. Update State
-When all wireframes complete and pass validation:
-```json
-{
-  "design_phase": {
-    "status": "completed",
-    "wireframes_generated": true,
-    "wireframes_count": [N],
-    "wireframes_directory": "designs/wireframes/",
-    "validation_status": "passed",
-    "validation_report": "designs/WIREFRAME_VALIDATION.md"
-  },
-  "decomposition_phase": {
-    "status": "not_started"
-  }
-}
+Use Python script to mark wireframes as completed:
+
+**📄 Script Reference**: See [.claude/scripts/README.md](../.claude/scripts/README.md)
+
+**Python command**:
+```python
+from state_manager import StateManager
+
+manager = StateManager()
+manager.complete_wireframes(
+    wireframes_count=8,  # Number of wireframes generated
+    validation_status="passed",
+    validation_report="designs/WIREFRAME_VALIDATION.md"
+)
 ```
+
+This updates state.json with:
+- `design_phase.status = "completed"`
+- `design_phase.wireframes_generated = true`
+- All validation results and metadata
 
 ### 6. Generate Wireframes Index
-Create `designs/WIREFRAMES_INDEX.md`:
-```markdown
-# Wireframes Index
+Create `designs/WIREFRAMES_INDEX.md` listing all wireframe files.
 
-## All Pages ([N] total)
-
-### Authentication
-- [Login](./wireframes/login-page.md)
-- [Signup](./wireframes/signup-page.md)
-
-### Dashboard
-- [Main Dashboard](./wireframes/dashboard.md)
-
-### [Category]
-- [Page Name](./wireframes/page-name.md)
-
-## Design System Reference
-See: docs/front-end-spec.md
-
-## User Flows Reference
-See: user-flows.md
-
-## Validation Report
-See: WIREFRAME_VALIDATION.md
-```
+**Index sections**:
+- All Pages: Grouped by category with links to wireframe files
+- Design System Reference: Link to front-end-spec.md
+- User Flows Reference: Link to user-flows.md
+- Validation Report: Link to WIREFRAME_VALIDATION.md
 
 ### 7. Output Summary
 
