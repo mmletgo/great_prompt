@@ -14,7 +14,22 @@ Continue decomposing backend tasks to function/endpoint level.
 ## Steps
 
 ### 1. Load State and Get Next Batch
-Get next 5-10 pending backend tasks.
+Read state and task registry using tree structure.
+Get next 5-10 pending backend tasks using `get_tasks_by_status("pending")`.
+
+**Python example**:
+```python
+task_mgr = TaskRegistryManager()
+
+# Get pending backend tasks
+pending_tasks = task_mgr.get_tasks_by_status("pending", category="backend")
+
+# Filter for tasks needing decomposition (Level 1 or 2)
+tasks_to_decompose = [t for t in pending_tasks if t["level"] in [1, 2]]
+
+# Get next batch (5-10 tasks)
+batch = tasks_to_decompose[:10]
+```
 
 ### 2. Process Each Backend Task
 
@@ -29,14 +44,35 @@ Get next 5-10 pending backend tasks.
 - Mark as "ready"
 - **Immediately invoke ContextGenerator** (see step 5)
 
-#### If task.type == "module":
-- **Decompose to Service level**
-- Create service/controller tasks
-- Save to task_registry (see step 4)
+#### If task.type == "module" (Level 1):
+- **Decompose to Service level (Level 2)**
+- Use `add_subtask()` to create service tasks under this module
+- Each service gets dot notation ID based on parent (e.g., parent="1" → services="1.1", "1.2", etc.)
 - **DO NOT mark module as complete - services must be decomposed next**
+- Parent status automatically changes to "decomposed"
 
-#### If task.type == "service":
-- **MUST Decompose to Function/Endpoint level** (non-negotiable)
+**Python example**:
+```python
+task_mgr = TaskRegistryManager()
+
+# Create service tasks under module "1"
+auth_api_id = task_mgr.add_subtask("1", {
+    "title": "Authentication API Layer",
+    "type": "service",
+    "description": "API endpoints for auth"
+})  # Returns "1.1"
+
+auth_service_id = task_mgr.add_subtask("1", {
+    "title": "Authentication Service Layer",
+    "type": "service",
+    "description": "Business logic for auth"
+})  # Returns "1.2"
+```
+
+#### If task.type == "service" (Level 2):
+- **MUST Decompose to Function/Endpoint level (Level 3)** (non-negotiable)
+- Use `add_subtasks_batch()` to create multiple function tasks at once
+- Each function gets dot notation ID (e.g., parent="1.1" → functions="1.1.1", "1.1.2", etc.)
 - Create tasks for ALL functions:
   - API endpoints (route handlers)
   - Service layer functions (business logic)
@@ -44,9 +80,21 @@ Get next 5-10 pending backend tasks.
   - Validation functions
   - Utility functions
 - A "simple" service still has minimum 5-10 functions
-- Save to task_registry (see step 4)
-- **For each new function task, invoke ContextGenerator** (see step 5)
 - **DO NOT skip decomposition** - every service must create function tasks
+- Parent status automatically changes to "decomposed"
+
+**Python example**:
+```python
+# Create function tasks under service "1.1"
+function_ids = task_mgr.add_subtasks_batch("1.1", [
+    {"title": "login_endpoint", "type": "function", "http_method": "POST", "route": "/api/auth/login"},
+    {"title": "signup_endpoint", "type": "function", "http_method": "POST", "route": "/api/auth/signup"},
+    {"title": "logout_endpoint", "type": "function", "http_method": "POST", "route": "/api/auth/logout"},
+    {"title": "verify_token", "type": "function", "description": "JWT verification utility"}
+])  # Returns ["1.1.1", "1.1.2", "1.1.3", "1.1.4"]
+```
+
+**For each new function task, invoke ContextGenerator** (see step 5)
 
 ### 3. Invoke BackendDecomposer Subagents (Parallel)
 

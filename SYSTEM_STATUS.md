@@ -184,6 +184,18 @@ f:\great_prompt\
 └── (项目运行时生成的文件夹)
     ├── docs/                                   # 产品文档（用户准备）
     │   ├── prd.md
+    │   └── fullstack-architecture.md
+    ├── designs/                                # 设计产物（系统生成）
+    │   ├── user-flows.md
+    │   └── wireframes/
+    └── .claude_tasks/                          # 任务管理（系统生成）
+        ├── state.json
+        ├── task_registry.json                  # 树状结构
+        └── contexts/
+            ├── 1_1_1_context.md                # 前端任务上下文
+            ├── 2_1_1_context.md                # 后端任务上下文
+            └── ...
+    │   ├── prd.md
     │   ├── fullstack-architecture.md
     │   └── front-end-spec.md
     │
@@ -590,17 +602,17 @@ designs/                # 设计产物
 3. **提供具体并行示例**：
    - **Frontend**：5个组件任务 → 5个并行 ContextGenerator subagent
      ```
-     - Subagent 1: frontend_task_008 (LoginForm) → contexts/frontend_task_008_context.md
-     - Subagent 2: frontend_task_009 (EmailInput) → contexts/frontend_task_009_context.md
-     - Subagent 3: frontend_task_010 (PasswordInput) → contexts/frontend_task_010_context.md
-     - Subagent 4: frontend_task_011 (LoginButton) → contexts/frontend_task_011_context.md
-     - Subagent 5: frontend_task_012 (ErrorMessage) → contexts/frontend_task_012_context.md
+     - Subagent 1: 1.2.1 (LoginForm) → contexts/1_2_1_context.md
+     - Subagent 2: 1.2.2 (EmailInput) → contexts/1_2_2_context.md
+     - Subagent 3: 1.2.3 (PasswordInput) → contexts/1_2_3_context.md
+     - Subagent 4: 1.2.4 (LoginButton) → contexts/1_2_4_context.md
+     - Subagent 5: 1.2.5 (ErrorMessage) → contexts/1_2_5_context.md
      ```
    
    - **Backend**：8个函数任务 → 8个并行 ContextGenerator subagent
      ```
-     - Subagent 1: backend_task_010 (loginUser) → contexts/backend_task_010_context.md
-     - Subagent 2: backend_task_011 (validateCredentials) → contexts/backend_task_011_context.md
+     - Subagent 1: 2.1.1 (login_endpoint) → contexts/2_1_1_context.md
+     - Subagent 2: 2.1.2 (validate_credentials) → contexts/2_1_2_context.md
      - Subagent 3: backend_task_012 (findUserByEmail) → contexts/backend_task_012_context.md
      - ... (8个并行)
      ```

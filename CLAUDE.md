@@ -17,13 +17,13 @@ designs/                       # Design artifacts (generated)
     ├── dashboard.md
     └── ...
 
-.claude_tasks/                 # Task management
-├── state.json                 # Global state & checkpoint
-├── task_registry.json         # Task list & dependency graph
-└── contexts/                  # Task context storage
-    ├── frontend_task_001_context.md
-    ├── backend_task_001_context.md
-    └── ...
+└── .claude_tasks/                             # 自动生成的工作目录
+    ├── state.json                             # 全局状态（设计/前端/后端阶段）
+    ├── task_registry.json                     # 任务清单 + 跨栈依赖图
+    └── contexts/                              # 每个任务的详细上下文
+        ├── 1_1_1_context.md                   # 前端组件上下文
+        ├── 2_1_1_context.md                   # 后端函数上下文
+        └── ...
 ```
 
 ## State Files Format
@@ -65,23 +65,11 @@ manager.complete_wave(wave_number=1)
 
 **Example structure**:
 ```json
-{
   "development_phase": {
     "status": "in_progress",
-    "current_wave": 5,
-    "completed_waves": 4,
-    "completed_tasks": ["backend_task_001", "frontend_task_001"],
-    "failed_tasks": [],
-    "wave_progress": {
-      "5": {
-        "status": "in_progress",
-        "tasks": 27,
-        "completed": 10,
-        "current_batch": 3
-      }
-    }
-  }
-}
+    "current_wave": 3,
+    "completed_tasks": ["2.1.1", "1.1.1"],
+    "failed_tasks": []
 ```
 
 ### task_registry.json
@@ -125,22 +113,70 @@ manager.set_execution_order(waves=[...])
 
 **Example task**:
 ```json
+```json
 {
-  "tasks": {
-    "backend_task_001": {
-      "id": "backend_task_001",
-      "title": "login_user",
-      "level": 3,
-      "type": "function",
-      "category": "backend",
-      "status": "completed",
-      "function_type": "endpoint",
-      "http_method": "POST",
-      "route": "/api/auth/login",
-      "dependencies": ["backend_task_002", "backend_task_003"]
+  "frontend_tasks": [
+    {
+      "id": "1",
+      "title": "Authentication Module",
+      "type": "module",
+      "status": "decomposed",
+      "subtasks": [
+        {
+          "id": "1.1",
+          "title": "Login Page",
+          "type": "page",
+          "parent_id": "1",
+          "status": "decomposed",
+          "subtasks": [
+            {
+              "id": "1.1.1",
+              "title": "LoginForm",
+              "type": "component",
+              "parent_id": "1.1",
+              "status": "ready",
+              "context_file": ".claude_tasks/contexts/1_1_1_context.md",
+              "subtasks": []
+            }
+          ]
+        }
+      ]
     }
+  ],
+  "backend_tasks": [
+    {
+      "id": "1",
+      "title": "Authentication Service",
+      "type": "service",
+      "status": "decomposed",
+      "subtasks": [
+        {
+          "id": "1.1",
+          "title": "login_endpoint",
+          "type": "function",
+          "layer": "api",
+          "parent_id": "1",
+          "status": "ready",
+          "context_file": ".claude_tasks/contexts/1_1_context.md",
+          "dependencies": ["1.2"],
+          "subtasks": []
+        },
+        {
+          "id": "1.2",
+          "title": "validate_credentials",
+          "type": "function",
+          "layer": "service",
+          "parent_id": "1",
+          "status": "ready",
+          "subtasks": []
+        }
+      ]
+    }
+  ],
+  "dependencies": {
+    "1.1.1": ["1.1"],
+    "1.1": ["1.2"]
   }
-}
 ```
 
 ## Task Context Template

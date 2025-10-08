@@ -42,10 +42,10 @@ your-project/
 │       └── backend-developer.md              # 后端TDD开发者
 └── .claude_tasks/                             # 自动生成的工作目录
     ├── state.json                             # 全局状态（设计/前端/后端阶段）
-    ├── task_registry.json                     # 任务清单（前后端+依赖）
-    └── contexts/                              # 任务上下文
-        ├── frontend_task_001_context.md
-        ├── backend_task_001_context.md
+    ├── task_registry.json                     # 任务清单 + 跨栈依赖图
+    └── contexts/                              # 每个任务的详细上下文
+        ├── 1_1_1_context.md                   # 前端组件上下文 (ID: 1.1.1)
+        ├── 2_1_1_context.md                   # 后端函数上下文 (ID: 2.1.1)
         └── ...
 ```
 

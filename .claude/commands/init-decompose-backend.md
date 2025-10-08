@@ -35,40 +35,19 @@ Examples:
 - Business Logic Layer (Core domain logic)
 - External Integrations (Email, SMS, Payment, etc.)
 
-### 3. Create Backend Tasks in Registry
-Append to `.claude_tasks/task_registry.json`:
-```json
-{
-  "tasks": {
-    "backend_task_001": {
-      "id": "backend_task_001",
-      "title": "[Service Name]",
-      "level": 1,
-      "type": "module",
-      "category": "backend",
-      "status": "pending",
-      "parent_id": null,
-      "children": [],
-      "dependencies": [],
-      "context_file": "contexts/backend_task_001_context.md",
-      "api_endpoints": [
-        "POST /api/auth/login",
-        "POST /api/auth/signup"
-      ],
-      "database_tables": ["users", "sessions"]
-    }
-  },
-  "backend_metadata": {
-    "framework": "extracted from architecture",
-    "database": "PostgreSQL/MongoDB/etc",
-    "orm": "SQLAlchemy/Prisma/etc",
-    "auth_method": "JWT/Session/OAuth"
-  }
-}
-```
+### 3. Create Backend Root Tasks with Tree Structure
+Create root tasks in tree-based registry:
 
-### 4. Update State
-Use Python scripts to update both state.json and task_registry.json:
+**📄 Task Registry Format**: See [task_registry.json Template](../templates/task_registry.json.template)
+
+**Tree Structure**:
+- Tasks stored in `backend_tasks` array
+- Root tasks (Level 1) get IDs: "1", "2", "3", etc.
+- Subtasks use dot notation: "1.1", "1.2", "1.1.1", etc.
+- Each task has `subtasks` array for children
+
+### 4. Update State and Create Root Tasks
+Use Python scripts to initialize and create tasks:
 
 **📄 Script Reference**: See [.claude/scripts/README.md](../.claude/scripts/README.md)
 
@@ -89,11 +68,39 @@ task_mgr.init_backend_metadata(
     database="PostgreSQL",
     language="Python"
 )
+
+# Create root task for each backend module/service
+auth_service_id = task_mgr.add_root_task("backend", {
+    "title": "Authentication Service",
+    "type": "service",
+    "description": "Login, Signup, JWT, Session management",
+    "api_endpoints": [
+        "POST /api/auth/login",
+        "POST /api/auth/signup",
+        "POST /api/auth/logout"
+    ],
+    "database_tables": ["users", "sessions"]
+})  # Returns "1"
+
+user_service_id = task_mgr.add_root_task("backend", {
+    "title": "User Management Service",
+    "type": "service",
+    "description": "CRUD operations for user profiles",
+    "api_endpoints": [
+        "GET /api/users/:id",
+        "PUT /api/users/:id",
+        "DELETE /api/users/:id"
+    ],
+    "database_tables": ["users", "profiles"]
+})  # Returns "2"
+
+# ... create more root tasks for other services
 ```
 
 **Updates applied**:
 - `decomposition_phase.status = "in_progress"`
 - `decomposition_phase.backend_status = "in_progress"`
+- Tree structure created with root tasks
 - Metadata timestamps automatically set
 
 ### 5. Output Summary
@@ -103,19 +110,29 @@ Analyzed backend requirements:
 ✓ docs/fullstack-architecture.md
 ✓ Frontend tasks (extracted [M] API calls)
 
-Identified backend modules:
-  - backend_task_001: Authentication Service
+Created backend root tasks (Level 1 services):
+  - ID: "1" - Authentication Service
     - Endpoints: POST /auth/login, POST /auth/signup
     - Tables: users, sessions
-  - backend_task_002: User Management Service
+  - ID: "2" - User Management Service
     - Endpoints: GET /users/:id, PUT /users/:id
     - Tables: users, profiles
+  - ID: "3" - Data Persistence Layer
+    - Endpoints: [Repository methods]
+    - Tables: [all tables]
   ...
 
 Backend framework: [FastAPI/Express/Django/etc]
 Database: [PostgreSQL/MongoDB/etc]
 
-Checkpoint saved: backend_task_XXX
+📊 Tree Structure:
+backend_tasks/
+  ├─ [1] Authentication Service (pending)
+  ├─ [2] User Management Service (pending)
+  ├─ [3] Data Persistence Layer (pending)
+  └─ ...
+
+Checkpoint saved with [N] root services
 Status: decomposition_phase = in_progress (backend)
 
 Next command: /continue-decompose-backend
@@ -126,11 +143,11 @@ Next command: /continue-decompose-backend
 - Align backend modules with business domains
 - Include database table requirements
 - Reference architecture tech stack
-- Create 4-8 backend modules maximum
 
 ## Next Steps
-After initialization, use `/continue-decompose-backend` which will:
-- Invoke @backend-decomposer agent to decompose modules → services → functions (API/service/repository/validation/utility layers)
-- Generate context files for each function using @context-generator
+After initialization:
+1. Use `/continue-decompose-backend` to decompose modules → services → functions
+2. Use `/generate-backend-contexts` to generate context files for all functions
+3. Then build dependency graph with `/build-deps-fullstack`
 
 ````

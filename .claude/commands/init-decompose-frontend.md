@@ -37,19 +37,20 @@ Examples:
 - Navigation Module (Header, Sidebar, Mobile Menu)
 - Shared Components Module (Buttons, Forms, Modals)
 
-### 3. Create Task Registry
-Create `.claude_tasks/task_registry.json` with initial structure.
+### 3. Create Task Registry with Tree Structure
+Create `.claude_tasks/task_registry.json` with tree-based structure.
 
 **📄 Task Registry Format**: See [task_registry.json Template](../templates/task_registry.json.template)
 
-**Initialize with**:
-- Empty `tasks` object
-- `frontend_metadata` with framework and counters at 0
-- Empty `backend_metadata`
-- Empty `dependency_graph`
+**Tree Structure**:
+- `frontend_tasks` array (empty initially)
+- `backend_tasks` array (empty)
+- `frontend_metadata` with framework info
+- `backend_metadata` (empty)
+- Tasks use dot notation IDs: "1", "2", "1.1", "1.2.3"
 
-### 4. Update State
-Use Python scripts to update both state.json and task_registry.json:
+### 4. Create Root Tasks for Each Module
+Use Python scripts to create Level 1 root tasks:
 
 **📄 Script Reference**: See [.claude/scripts/README.md](../.claude/scripts/README.md)
 
@@ -69,6 +70,21 @@ task_mgr.init_frontend_metadata(
     framework="React",
     language="TypeScript"
 )
+
+# Create root task for each module
+module_1_id = task_mgr.add_root_task("frontend", {
+    "title": "Authentication Module",
+    "type": "module",
+    "description": "Login, Signup, Password Reset pages"
+})  # Returns "1"
+
+module_2_id = task_mgr.add_root_task("frontend", {
+    "title": "User Profile Module",
+    "type": "module",
+    "description": "Profile View, Edit Profile, Avatar Upload"
+})  # Returns "2"
+
+# ... create more root tasks for other modules
 ```
 
 **Updates applied**:
@@ -82,15 +98,23 @@ Analyzed design artifacts:
 ✓ docs/front-end-spec.md
 ✓ docs/fullstack-architecture.md
 
-Identified frontend modules:
-  - frontend_task_001: [Module Name] ([M] pages)
-  - frontend_task_002: [Module Name] ([M] pages)
+Created frontend root tasks (Level 1 modules):
+  - ID: "1" - [Module Name] (estimated [M] pages)
+  - ID: "2" - [Module Name] (estimated [M] pages)
+  - ID: "3" - [Module Name] (estimated [M] pages)
   ...
 
 Frontend framework: [React/Vue/Angular/etc]
 UI library: [Material-UI/Ant Design/etc]
 
-Checkpoint saved: frontend_task_XXX
+📊 Tree Structure:
+frontend_tasks/
+  ├─ [1] Authentication Module (pending)
+  ├─ [2] User Profile Module (pending)
+  ├─ [3] Dashboard Module (pending)
+  └─ ...
+
+Checkpoint saved with [N] root modules
 Status: decomposition_phase = in_progress (frontend)
 
 Next command: /continue-decompose-frontend
@@ -100,12 +124,12 @@ Next command: /continue-decompose-frontend
 - Modules should align with wireframe groupings
 - Include reference to relevant wireframe files
 - Extract tech stack from architecture document
-- Create 4-8 frontend modules maximum
 - Each module should represent a logical feature area
 
 ## Next Steps
-After initialization, use `/continue-decompose-frontend` which will:
-- Invoke @frontend-decomposer agent to decompose modules → pages → components
-- Generate context files for each component using @context-generator
+After initialization:
+1. Use `/continue-decompose-frontend` to decompose modules → pages → components
+2. Use `/generate-frontend-contexts` to generate context files for all components
+3. Then proceed to backend or build dependency graph
 
 ````

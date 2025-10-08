@@ -1,17 +1,23 @@
 """
 Task Registry Manager - Manage .claude_tasks/task_registry.json operations
-Provides atomic operations for task management.
+Provides atomic operations for task management with tree structure support.
+
+Tree Structure:
+- Tasks organized as nested tree (frontend_tasks and backend_tasks arrays)
+- Task IDs use dot notation: "1", "1.1", "1.1.2"
+- Subtasks nested in parent's "subtasks" array
+- Each task has "parent_id" field (except root tasks)
 """
 
 import json
 import os
 from datetime import datetime
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
 from pathlib import Path
 
 
 class TaskRegistryManager:
-    """Manager for task_registry.json operations."""
+    """Manager for task_registry.json operations with tree structure support."""
 
     def __init__(self, workspace_root: str = "."):
         """Initialize TaskRegistryManager.
@@ -43,16 +49,16 @@ class TaskRegistryManager:
             json.dump(registry, f, indent=2, ensure_ascii=False)
 
     def _get_default_registry(self) -> Dict:
-        """Get default registry structure."""
+        """Get default registry structure (tree-based)."""
         return {
-            "tasks": {},
+            "frontend_tasks": [],
+            "backend_tasks": [],
             "frontend_metadata": {
                 "framework": None,
                 "language": None,
                 "total_modules": 0,
                 "total_pages": 0,
                 "total_components": 0,
-                "modules": [],
             },
             "backend_metadata": {
                 "framework": None,
@@ -61,7 +67,6 @@ class TaskRegistryManager:
                 "total_modules": 0,
                 "total_services": 0,
                 "total_functions": 0,
-                "modules": [],
                 "layers": {
                     "api": 0,
                     "service": 0,
@@ -78,41 +83,315 @@ class TaskRegistryManager:
             },
         }
 
-    # Task Operations
+    # Tree Navigation Operations
 
-    def add_task(self, task_id: str, task_data: Dict) -> Dict:
-        """Add or update a task.
+    def _find_task_in_tree(self, tasks: List[Dict], task_id: str) -> Optional[Dict]:
+        """Find task by ID in tree structure using depth-first search.
 
         Args:
-            task_id: Unique task identifier
-            task_data: Task data dictionary
+            tasks: Array of tasks (or subtasks)
+            task_id: Task ID to search for (dot notation like "1.2.3")
+
+        Returns:
+            Task dict if found, None otherwise
+        """
+        for task in tasks:
+            if task["id"] == task_id:
+                return task
+
+            # Recursively search subtasks
+            if task.get("subtasks"):
+                found = self._find_task_in_tree(task["subtasks"], task_id)
+                if found:
+                    return found
+
+        return None
+
+    def find_task(self, task_id: str) -> Optional[Dict]:
+        """Find task by ID across frontend and backend trees.
+
+        Args:
+            task_id: Task ID in dot notation (e.g., "1.2.3")
+
+        Returns:
+            Task dict if found, None otherwise
         """
         registry = self._load_registry()
 
-        # Ensure required fields
-        task_data.setdefault("id", task_id)
-        task_data.setdefault("status", "pending")
-        task_data.setdefault("children", [])
-        task_data.setdefault("dependencies", [])
+        # Search frontend tree
+        task = self._find_task_in_tree(registry["frontend_tasks"], task_id)
+        if task:
+            return task
 
-        registry["tasks"][task_id] = task_data
+        # Search backend tree
+        task = self._find_task_in_tree(registry["backend_tasks"], task_id)
+        return task
+
+    def _get_all_tasks_recursive(
+        self,
+        tasks: List[Dict],
+        level: Optional[int] = None,
+        category: Optional[str] = None,
+    ) -> List[Dict]:
+        """Get all tasks from tree recursively.
+
+        Args:
+            tasks: Array of tasks to traverse
+            level: Filter by level (1, 2, 3) if provided
+            category: Filter by category if provided
+
+        Returns:
+            Flat list of all matching tasks
+        """
+        results = []
+
+        for task in tasks:
+            # Check filters
+            if level is not None and task.get("level") != level:
+                pass  # Skip this task but continue to subtasks
+            elif category is not None and task.get("category") != category:
+                pass
+            else:
+                results.append(task)
+
+            # Recursively get subtasks
+            if task.get("subtasks"):
+                results.extend(
+                    self._get_all_tasks_recursive(task["subtasks"], level, category)
+                )
+
+        return results
+
+    def get_all_tasks(
+        self, level: Optional[int] = None, category: Optional[str] = None
+    ) -> List[Dict]:
+        """Get all tasks from both trees.
+
+        Args:
+            level: Filter by level (1=module, 2=page/service, 3=component/function)
+            category: Filter by category ('frontend' or 'backend')
+
+        Returns:
+            Flat list of all matching tasks
+        """
+        registry = self._load_registry()
+        tasks = []
+
+        if category is None or category == "frontend":
+            tasks.extend(
+                self._get_all_tasks_recursive(
+                    registry["frontend_tasks"], level, "frontend"
+                )
+            )
+
+        if category is None or category == "backend":
+            tasks.extend(
+                self._get_all_tasks_recursive(
+                    registry["backend_tasks"], level, "backend"
+                )
+            )
+
+        return tasks
+
+    def _get_task_path_recursive(
+        self, tasks: List[Dict], task_id: str, path: List[Dict]
+    ) -> Optional[List[Dict]]:
+        """Get path from root to task (breadcrumb trail).
+
+        Args:
+            tasks: Array of tasks to search
+            task_id: Target task ID
+            path: Current path (used in recursion)
+
+        Returns:
+            List of task dicts from root to target, or None if not found
+        """
+        for task in tasks:
+            current_path = path + [task]
+
+            if task["id"] == task_id:
+                return current_path
+
+            if task.get("subtasks"):
+                result = self._get_task_path_recursive(
+                    task["subtasks"], task_id, current_path
+                )
+                if result:
+                    return result
+
+        return None
+
+    def get_task_path(self, task_id: str) -> Optional[List[Dict]]:
+        """Get full path from root to task (breadcrumb).
+
+        Args:
+            task_id: Target task ID
+
+        Returns:
+            List of ancestor tasks [root, parent, ..., target] or None
+        """
+        registry = self._load_registry()
+
+        # Search frontend tree
+        path = self._get_task_path_recursive(registry["frontend_tasks"], task_id, [])
+        if path:
+            return path
+
+        # Search backend tree
+        path = self._get_task_path_recursive(registry["backend_tasks"], task_id, [])
+        return path
+
+    def _assign_task_id(self, parent_id: Optional[str], sibling_count: int) -> str:
+        """Assign ID to new task based on parent and sibling count.
+
+        Args:
+            parent_id: ID of parent task (None for Level 1 root)
+            sibling_count: Number of existing siblings
+
+        Returns:
+            New task ID in dot notation
+        """
+        if parent_id is None:
+            # Level 1: Root module
+            return str(sibling_count + 1)
+        else:
+            # Level 2-3: Append to parent ID
+            return f"{parent_id}.{sibling_count + 1}"
+
+    # Task Operations (Tree-based)
+
+    def add_root_task(self, category: str, task_data: Dict) -> str:
+        """Add a new root task (Level 1 module).
+
+        Args:
+            category: 'frontend' or 'backend'
+            task_data: Task data dict (should include title, type, etc.)
+
+        Returns:
+            Assigned task ID
+        """
+        registry = self._load_registry()
+
+        # Get appropriate tasks array
+        tasks_array = (
+            registry["frontend_tasks"]
+            if category == "frontend"
+            else registry["backend_tasks"]
+        )
+
+        # Assign ID
+        task_id = self._assign_task_id(None, len(tasks_array))
+
+        # Build task object
+        task = {
+            "id": task_id,
+            "level": 1,
+            "category": category,
+            "status": "pending",
+            "dependencies": [],
+            "subtasks": [],
+            **task_data,
+        }
+
+        # Add to array
+        tasks_array.append(task)
+
         self._save_registry(registry)
-        return registry
+        return task_id
 
-    def add_tasks_batch(self, tasks: Dict[str, Dict]) -> Dict:
-        """Add multiple tasks at once.
+    def add_subtask(self, parent_id: str, task_data: Dict) -> str:
+        """Add a new subtask to a parent task.
 
         Args:
-            tasks: Dictionary of {task_id: task_data}
+            parent_id: ID of parent task (e.g., "1" or "1.2")
+            task_data: Task data dict (should include title, type, etc.)
+
+        Returns:
+            Assigned task ID
+
+        Raises:
+            ValueError: If parent task not found
         """
         registry = self._load_registry()
 
-        for task_id, task_data in tasks.items():
-            task_data.setdefault("id", task_id)
-            task_data.setdefault("status", "pending")
-            task_data.setdefault("children", [])
-            task_data.setdefault("dependencies", [])
-            registry["tasks"][task_id] = task_data
+        # Find parent task
+        parent = self._find_task_in_tree(registry["frontend_tasks"], parent_id)
+        if not parent:
+            parent = self._find_task_in_tree(registry["backend_tasks"], parent_id)
+
+        if not parent:
+            raise ValueError(f"Parent task {parent_id} not found")
+
+        # Assign ID based on parent and sibling count
+        task_id = self._assign_task_id(parent_id, len(parent["subtasks"]))
+
+        # Build task object
+        task = {
+            "id": task_id,
+            "parent_id": parent_id,
+            "level": parent["level"] + 1,
+            "category": parent["category"],
+            "status": "pending",
+            "dependencies": [],
+            "subtasks": [],
+            **task_data,
+        }
+
+        # Add to parent's subtasks
+        parent["subtasks"].append(task)
+
+        # Update parent status if it was pending
+        if parent["status"] == "pending":
+            parent["status"] = "decomposed"
+
+        self._save_registry(registry)
+        return task_id
+
+    def add_subtasks_batch(self, parent_id: str, subtasks: List[Dict]) -> List[str]:
+        """Add multiple subtasks to a parent at once.
+
+        Args:
+            parent_id: ID of parent task
+            subtasks: List of task data dicts
+
+        Returns:
+            List of assigned task IDs
+        """
+        task_ids = []
+        for task_data in subtasks:
+            task_id = self.add_subtask(parent_id, task_data)
+            task_ids.append(task_id)
+        return task_ids
+
+    def update_task(self, task_id: str, updates: Dict) -> Dict:
+        """Update task fields in-place in the tree.
+
+        Args:
+            task_id: Task ID in dot notation
+            updates: Dictionary of fields to update
+
+        Returns:
+            Updated registry
+
+        Raises:
+            ValueError: If task not found
+        """
+        registry = self._load_registry()
+
+        # Find task in tree
+        task = self._find_task_in_tree(registry["frontend_tasks"], task_id)
+        if not task:
+            task = self._find_task_in_tree(registry["backend_tasks"], task_id)
+
+        if not task:
+            raise ValueError(f"Task {task_id} not found")
+
+        # Update fields
+        task.update(updates)
+
+        # Auto-update timestamps
+        if updates.get("status") == "completed" and "completed_at" not in updates:
+            task["completed_at"] = datetime.utcnow().isoformat() + "Z"
 
         self._save_registry(registry)
         return registry
@@ -131,7 +410,7 @@ class TaskRegistryManager:
         """Update task status and related fields.
 
         Args:
-            task_id: Task identifier
+            task_id: Task identifier (dot notation)
             status: New status ('completed', 'failed', 'in_progress', etc.)
             completed_at: ISO 8601 timestamp
             duration_minutes: Execution duration
@@ -139,74 +418,68 @@ class TaskRegistryManager:
             implementation_file: Path to implementation file
             test_file: Path to test file
             error: Error message if failed
+
+        Returns:
+            Updated registry
         """
-        registry = self._load_registry()
-
-        if task_id not in registry["tasks"]:
-            raise KeyError(f"Task {task_id} not found")
-
-        task = registry["tasks"][task_id]
-        task["status"] = status
+        updates = {"status": status}
 
         if completed_at:
-            task["completed_at"] = completed_at
-        elif status == "completed":
-            task["completed_at"] = datetime.utcnow().isoformat() + "Z"
-
+            updates["completed_at"] = completed_at
         if duration_minutes is not None:
-            task["duration_minutes"] = duration_minutes
+            updates["duration_minutes"] = duration_minutes
         if test_coverage is not None:
-            task["test_coverage"] = test_coverage
+            updates["test_coverage"] = test_coverage
         if implementation_file:
-            task["implementation_file"] = implementation_file
+            updates["implementation_file"] = implementation_file
         if test_file:
-            task["test_file"] = test_file
+            updates["test_file"] = test_file
         if error:
-            task["error"] = error
+            updates["error"] = error
         elif status == "completed":
-            task["error"] = None
+            updates["error"] = None
 
-        self._save_registry(registry)
-        return registry
-
-    def update_tasks_batch(self, updates: List[Dict]) -> Dict:
-        """Update multiple tasks at once.
-
-        Args:
-            updates: List of dicts with 'task_id' and update fields
-        """
-        registry = self._load_registry()
-
-        for update in updates:
-            task_id = update.pop("task_id")
-            if task_id in registry["tasks"]:
-                registry["tasks"][task_id].update(update)
-
-        self._save_registry(registry)
-        return registry
+        return self.update_task(task_id, updates)
 
     def get_task(self, task_id: str) -> Optional[Dict]:
-        """Get task data."""
-        registry = self._load_registry()
-        return registry["tasks"].get(task_id)
+        """Get task data by ID.
 
-    def get_tasks_by_status(self, status: str) -> Dict[str, Dict]:
-        """Get all tasks with specific status."""
-        registry = self._load_registry()
-        return {
-            task_id: task
-            for task_id, task in registry["tasks"].items()
-            if task.get("status") == status
-        }
+        Args:
+            task_id: Task ID in dot notation
 
-    def get_tasks_by_category(self, category: str) -> Dict[str, Dict]:
-        """Get all tasks of specific category (frontend/backend)."""
-        registry = self._load_registry()
-        return {
-            task_id: task
-            for task_id, task in registry["tasks"].items()
-            if task.get("category") == category
-        }
+        Returns:
+            Task dict if found, None otherwise
+        """
+        return self.find_task(task_id)
+
+    def get_tasks_by_status(
+        self, status: str, category: Optional[str] = None
+    ) -> List[Dict]:
+        """Get all tasks with specific status.
+
+        Args:
+            status: Status to filter by
+            category: Optional category filter ('frontend' or 'backend')
+
+        Returns:
+            List of tasks matching status
+        """
+        all_tasks = self.get_all_tasks(category=category)
+        return [task for task in all_tasks if task.get("status") == status]
+
+    def get_tasks_by_level(
+        self, level: int, category: Optional[str] = None
+    ) -> List[Dict]:
+        """Get all tasks at specific level.
+
+        Args:
+            level: Level to filter by (1=module, 2=page/service, 3=component/function)
+            category: Optional category filter
+
+        Returns:
+            List of tasks at specified level
+        """
+        return self.get_all_tasks(level=level, category=category)
 
     # Metadata Operations
 
@@ -275,70 +548,184 @@ class TaskRegistryManager:
 
     # Dependency Operations
 
-    def add_dependency(
-        self, task_id: str, depends_on: str, dependency_type: str = "auto"
-    ):
+    def add_dependency(self, task_id: str, depends_on_task_id: str) -> Dict:
         """Add a dependency relationship.
 
         Args:
-            task_id: Task that depends on another
-            depends_on: Task ID that is depended upon
-            dependency_type: 'frontend', 'backend', or 'cross_stack' (auto-detect if 'auto')
+            task_id: Task that depends on another (dot notation)
+            depends_on_task_id: Task being depended upon (dot notation)
+
+        Returns:
+            Updated registry
+
+        Raises:
+            ValueError: If either task not found
         """
         registry = self._load_registry()
 
-        # Add to task's dependencies list
-        if task_id in registry["tasks"]:
-            if depends_on not in registry["tasks"][task_id]["dependencies"]:
-                registry["tasks"][task_id]["dependencies"].append(depends_on)
+        # Find both tasks
+        task = self.find_task(task_id)
+        depends_on = self.find_task(depends_on_task_id)
 
-        # Add to dependency graph
-        if dependency_type == "auto":
-            task_category = registry["tasks"][task_id]["category"]
-            depends_category = registry["tasks"][depends_on]["category"]
+        if not task:
+            raise ValueError(f"Task {task_id} not found")
+        if not depends_on:
+            raise ValueError(f"Task {depends_on_task_id} not found")
 
-            if task_category == "frontend" and depends_category == "backend":
-                dependency_type = "cross_stack"
-            elif task_category == "frontend":
-                dependency_type = "frontend"
-            else:
-                dependency_type = "backend"
-
-        graph_key = f"{dependency_type}_dependencies"
-        if task_id not in registry["dependency_graph"][graph_key]:
-            registry["dependency_graph"][graph_key][task_id] = []
-
-        if depends_on not in registry["dependency_graph"][graph_key][task_id]:
-            registry["dependency_graph"][graph_key][task_id].append(depends_on)
+        # Add dependency if not already present
+        if depends_on_task_id not in task.get("dependencies", []):
+            if "dependencies" not in task:
+                task["dependencies"] = []
+            task["dependencies"].append(depends_on_task_id)
 
         self._save_registry(registry)
         return registry
 
+    def remove_dependency(self, task_id: str, depends_on_task_id: str) -> Dict:
+        """Remove a dependency relationship.
+
+        Args:
+            task_id: Task that depends on another
+            depends_on_task_id: Task to remove from dependencies
+
+        Returns:
+            Updated registry
+        """
+        registry = self._load_registry()
+
+        task = self.find_task(task_id)
+        if task and depends_on_task_id in task.get("dependencies", []):
+            task["dependencies"].remove(depends_on_task_id)
+
+        self._save_registry(registry)
+        return registry
+
+    def get_task_dependencies(self, task_id: str) -> List[Dict]:
+        """Get all tasks that a task depends on.
+
+        Args:
+            task_id: Task ID to get dependencies for
+
+        Returns:
+            List of task dicts that this task depends on
+        """
+        task = self.find_task(task_id)
+        if not task:
+            return []
+
+        dependencies = []
+        for dep_id in task.get("dependencies", []):
+            dep_task = self.find_task(dep_id)
+            if dep_task:
+                dependencies.append(dep_task)
+
+        return dependencies
+
+    def get_dependents(self, task_id: str) -> List[Dict]:
+        """Get all tasks that depend on this task.
+
+        Args:
+            task_id: Task ID to get dependents for
+
+        Returns:
+            List of task dicts that depend on this task
+        """
+        all_tasks = self.get_all_tasks()
+        dependents = []
+
+        for task in all_tasks:
+            if task_id in task.get("dependencies", []):
+                dependents.append(task)
+
+        return dependents
+
+    def get_blocked_tasks(self) -> List[Dict]:
+        """Get all tasks that are blocked by incomplete dependencies.
+
+        Returns:
+            List of tasks with incomplete dependencies
+        """
+        all_tasks = self.get_all_tasks()
+        blocked = []
+
+        for task in all_tasks:
+            if task.get("status") in ["completed", "in_progress"]:
+                continue
+
+            dependencies = self.get_task_dependencies(task["id"])
+            if dependencies:
+                incomplete_deps = [
+                    dep for dep in dependencies if dep.get("status") != "completed"
+                ]
+                if incomplete_deps:
+                    blocked.append(task)
+
+        return blocked
+
+    def get_ready_tasks(self) -> List[Dict]:
+        """Get all tasks that are ready to work on (no blocking dependencies).
+
+        Returns:
+            List of tasks with status 'ready' and all dependencies completed
+        """
+        all_tasks = self.get_all_tasks()
+        ready = []
+
+        for task in all_tasks:
+            if task.get("status") != "ready":
+                continue
+
+            dependencies = self.get_task_dependencies(task["id"])
+            if not dependencies:
+                ready.append(task)
+            else:
+                all_deps_complete = all(
+                    dep.get("status") == "completed" for dep in dependencies
+                )
+                if all_deps_complete:
+                    ready.append(task)
+
+        return ready
+
     def set_execution_order(self, waves: List[Dict]):
-        """Set the execution order (waves).
+        """Set the execution order (waves) - LEGACY METHOD.
+
+        NOTE: With tree structure, execution order is now determined by tree levels
+        and dependencies. This method is kept for backward compatibility.
 
         Args:
             waves: List of wave dictionaries with 'wave', 'category', 'tasks' keys
         """
         registry = self._load_registry()
-        registry["dependency_graph"]["execution_order"] = waves
+
+        # Store in metadata for reference
+        if "execution_order" not in registry:
+            registry["execution_order"] = []
+
+        registry["execution_order"] = waves
         self._save_registry(registry)
         return registry
 
     def get_wave_tasks(self, wave_number: int) -> List[str]:
-        """Get task IDs for a specific wave."""
+        """Get task IDs for a specific wave - LEGACY METHOD.
+
+        NOTE: With tree structure, use get_tasks_by_level() instead.
+        """
         registry = self._load_registry()
 
-        for wave in registry["dependency_graph"]["execution_order"]:
+        for wave in registry.get("execution_order", []):
             if wave["wave"] == wave_number:
                 return wave["tasks"]
 
         return []
 
     def get_total_waves(self) -> int:
-        """Get total number of waves."""
+        """Get total number of waves - LEGACY METHOD.
+
+        NOTE: With tree structure, max level represents depth.
+        """
         registry = self._load_registry()
-        return len(registry["dependency_graph"]["execution_order"])
+        return len(registry.get("execution_order", []))
 
     # Query Operations
 
@@ -347,27 +734,34 @@ class TaskRegistryManager:
         return self._load_registry()
 
     def get_statistics(self) -> Dict:
-        """Get statistics about tasks."""
+        """Get statistics about tasks using tree structure."""
         registry = self._load_registry()
 
-        total_tasks = len(registry["tasks"])
+        all_tasks = self.get_all_tasks()
+
+        total_tasks = len(all_tasks)
         by_status = {}
         by_category = {}
+        by_level = {}
 
-        for task in registry["tasks"].values():
+        for task in all_tasks:
             status = task.get("status", "unknown")
             category = task.get("category", "unknown")
+            level = task.get("level", 0)
 
             by_status[status] = by_status.get(status, 0) + 1
             by_category[category] = by_category.get(category, 0) + 1
+            by_level[level] = by_level.get(level, 0) + 1
 
         return {
             "total_tasks": total_tasks,
             "by_status": by_status,
             "by_category": by_category,
-            "frontend_metadata": registry["frontend_metadata"],
-            "backend_metadata": registry["backend_metadata"],
-            "total_waves": len(registry["dependency_graph"]["execution_order"]),
+            "by_level": by_level,
+            "frontend_metadata": registry.get("frontend_metadata", {}),
+            "backend_metadata": registry.get("backend_metadata", {}),
+            "frontend_root_tasks": len(registry.get("frontend_tasks", [])),
+            "backend_root_tasks": len(registry.get("backend_tasks", [])),
         }
 
 
@@ -376,30 +770,121 @@ def main():
     import sys
     import argparse
 
-    parser = argparse.ArgumentParser(description="Manage task_registry.json")
+    parser = argparse.ArgumentParser(
+        description="Manage task_registry.json (Tree Structure)"
+    )
     parser.add_argument("command", help="Command to execute")
     parser.add_argument("--workspace", default=".", help="Workspace root directory")
-    parser.add_argument("--task-id", help="Task ID")
+    parser.add_argument("--task-id", help="Task ID (dot notation, e.g., '1.2.3')")
+    parser.add_argument("--parent-id", help="Parent task ID for subtask operations")
+    parser.add_argument("--category", help="Task category (frontend/backend)")
     parser.add_argument("--status", help="Task status")
+    parser.add_argument(
+        "--level",
+        type=int,
+        help="Task level (1=module, 2=page/service, 3=component/function)",
+    )
+    parser.add_argument("--json", help="JSON data for task operations")
     parser.add_argument("--args", nargs="*", help="Additional arguments")
 
     args = parser.parse_args()
 
     manager = TaskRegistryManager(args.workspace)
 
-    # Execute command
-    if args.command == "get_statistics":
-        result = manager.get_statistics()
-        print(json.dumps(result, indent=2, ensure_ascii=False))
-    elif args.command == "update_task_status" and args.task_id and args.status:
-        result = manager.update_task_status(args.task_id, args.status)
-        print(f"Updated {args.task_id} to {args.status}")
-    elif hasattr(manager, args.command):
-        method = getattr(manager, args.command)
-        result = method()
-        print(json.dumps(result, indent=2, ensure_ascii=False))
-    else:
-        print(f"Unknown command: {args.command}", file=sys.stderr)
+    try:
+        # Execute command
+        if args.command == "get_statistics":
+            result = manager.get_statistics()
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+
+        elif args.command == "get_all_tasks":
+            result = manager.get_all_tasks(level=args.level, category=args.category)
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+
+        elif args.command == "find_task" and args.task_id:
+            result = manager.find_task(args.task_id)
+            if result:
+                print(json.dumps(result, indent=2, ensure_ascii=False))
+            else:
+                print(f"Task {args.task_id} not found", file=sys.stderr)
+                sys.exit(1)
+
+        elif args.command == "get_task_path" and args.task_id:
+            result = manager.get_task_path(args.task_id)
+            if result:
+                # Print breadcrumb
+                path_str = " > ".join([t.get("title", t["id"]) for t in result])
+                print(f"Path: {path_str}")
+                print(json.dumps(result, indent=2, ensure_ascii=False))
+            else:
+                print(f"Task {args.task_id} not found", file=sys.stderr)
+                sys.exit(1)
+
+        elif args.command == "add_root_task" and args.category and args.json:
+            task_data = json.loads(args.json)
+            task_id = manager.add_root_task(args.category, task_data)
+            print(f"Created root task: {task_id}")
+
+        elif args.command == "add_subtask" and args.parent_id and args.json:
+            task_data = json.loads(args.json)
+            task_id = manager.add_subtask(args.parent_id, task_data)
+            print(f"Created subtask: {task_id}")
+
+        elif args.command == "update_task_status" and args.task_id and args.status:
+            manager.update_task_status(args.task_id, args.status)
+            print(f"Updated {args.task_id} to {args.status}")
+
+        elif args.command == "get_tasks_by_status" and args.status:
+            result = manager.get_tasks_by_status(args.status, args.category)
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+
+        elif args.command == "get_tasks_by_level" and args.level:
+            result = manager.get_tasks_by_level(args.level, args.category)
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+
+        elif args.command == "get_ready_tasks":
+            result = manager.get_ready_tasks()
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+
+        elif args.command == "get_blocked_tasks":
+            result = manager.get_blocked_tasks()
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+
+        elif hasattr(manager, args.command):
+            method = getattr(manager, args.command)
+            result = method()
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+
+        else:
+            print(f"Unknown command: {args.command}", file=sys.stderr)
+            print("\nAvailable commands:", file=sys.stderr)
+            print("  get_statistics", file=sys.stderr)
+            print(
+                "  get_all_tasks [--level N] [--category frontend|backend]",
+                file=sys.stderr,
+            )
+            print("  find_task --task-id ID", file=sys.stderr)
+            print("  get_task_path --task-id ID", file=sys.stderr)
+            print(
+                "  add_root_task --category frontend|backend --json '{...}'",
+                file=sys.stderr,
+            )
+            print("  add_subtask --parent-id ID --json '{...}'", file=sys.stderr)
+            print("  update_task_status --task-id ID --status STATUS", file=sys.stderr)
+            print(
+                "  get_tasks_by_status --status STATUS [--category ...]",
+                file=sys.stderr,
+            )
+            print("  get_tasks_by_level --level N [--category ...]", file=sys.stderr)
+            print("  get_ready_tasks", file=sys.stderr)
+            print("  get_blocked_tasks", file=sys.stderr)
+            sys.exit(1)
+
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        import traceback
+
+        traceback.print_exc()
         sys.exit(1)
 
 

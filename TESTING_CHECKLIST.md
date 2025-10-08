@@ -286,7 +286,7 @@ Next command: /init-decompose-backend
 - ☐ 能够从检查点恢复
 - ☐ 逐步拆分任务（Module → Page → Component）
 - ☐ 最终达到组件级别
-- ☐ 创建了 `contexts/` 目录下的 frontend context 文件
+- ☐ 创建了 `contexts/` 目录下的前端上下文文件 (如 1_1_1_context.md)
 
 ---
 
@@ -335,8 +335,13 @@ Next command: /build-deps-fullstack
 
 ```bash
 ls .claude_tasks/contexts/
-cat .claude_tasks/contexts/frontend_task_001_context.md
-cat .claude_tasks/contexts/backend_task_001_context.md
+```bash
+# 查看前端组件上下文 (点号ID 1.1.1 转换为 1_1_1_context.md)
+cat .claude_tasks/contexts/1_1_1_context.md
+
+# 查看后端函数上下文 (点号ID 2.1.1 转换为 2_1_1_context.md)
+cat .claude_tasks/contexts/2_1_1_context.md
+```
 ```
 
 **预期内容**:

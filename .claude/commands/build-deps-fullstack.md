@@ -17,9 +17,22 @@ Check that both frontend and backend decomposition are complete:
 ## Steps
 
 ### 1. Collect All Tasks
-From task_registry.json:
-- All frontend component-level tasks
-- All backend function-level tasks
+From task_registry.json (tree structure):
+- All frontend component-level tasks (Level 3, type="component")
+- All backend function-level tasks (Level 3, type="function")
+
+**Python example**:
+```python
+task_mgr = TaskRegistryManager()
+
+# Get all Level 3 tasks (leaf tasks ready for development)
+frontend_components = task_mgr.get_tasks_by_level(3, category="frontend")
+backend_functions = task_mgr.get_tasks_by_level(3, category="backend")
+
+print(f"Frontend components: {len(frontend_components)}")
+print(f"Backend functions: {len(backend_functions)}")
+print(f"Total tasks: {len(frontend_components) + len(backend_functions)}")
+```
 
 ### 2. Invoke Fullstack Dependency Analyzer
 ```
@@ -53,6 +66,7 @@ Task:
    - Backend functions must complete before frontend components that use them
    - Shared components must complete before page components
    - Authentication backend must complete before protected frontend pages
+   - **Use dot notation IDs** for all dependencies (e.g., "1.1.2" depends on "2.1.3")
 
 5. Create Execution Waves with Balanced Task Distribution:
    
@@ -86,28 +100,28 @@ Output format:
   "frontend_dependencies": {...},
   "backend_dependencies": {...},
   "cross_stack_dependencies": {
-    "frontend_task_XXX": ["backend_task_YYY"]
+    "1.2.3": ["2.1.1", "2.1.2"]  // Frontend task depends on backend tasks (dot notation IDs)
   },
   "execution_order": [
     {
       "wave": 1,
       "category": "backend",
-      "tasks": ["backend_task_001", "backend_task_002"]
+      "tasks": ["2.1.1", "2.1.2", "2.2.1"]  // Dot notation IDs
     },
     {
       "wave": 2,
       "category": "backend",
-      "tasks": ["backend_task_010"]
+      "tasks": ["2.3.1"]
     },
     {
       "wave": 3,
       "category": "frontend",
-      "tasks": ["frontend_task_001"]
+      "tasks": ["1.1.1"]
     },
     {
       "wave": 4,
       "category": "mixed",
-      "tasks": ["frontend_task_005", "backend_task_020"]
+      "tasks": ["1.2.1", "2.4.1"]
     }
   ]
 }
@@ -127,12 +141,19 @@ from task_registry_manager import TaskRegistryManager
 state_mgr = StateManager()
 task_mgr = TaskRegistryManager()
 
+# Add dependencies using dot notation IDs
+# Frontend component depends on backend function
+task_mgr.add_dependency("1.2.3", "2.1.1")  # LoginForm depends on login_endpoint
+
+# Backend function depends on another backend function
+task_mgr.add_dependency("2.1.1", "2.2.1")  # login_endpoint depends on validate_credentials
+
 # Set execution order (from analyzer output)
 waves = [
-    {"wave": 1, "category": "backend", "tasks": ["backend_task_001", ...]},
-    {"wave": 2, "category": "backend", "tasks": ["backend_task_010", ...]},
-    {"wave": 3, "category": "frontend", "tasks": ["frontend_task_050", ...]},
-    # ... more waves
+    {"wave": 1, "category": "backend", "tasks": ["2.1.1", "2.1.2", "2.1.3"]},
+    {"wave": 2, "category": "backend", "tasks": ["2.2.1", "2.2.2"]},
+    {"wave": 3, "category": "frontend", "tasks": ["1.1.1", "1.1.2"]},
+    # ... more waves with dot notation IDs
 ]
 task_mgr.set_execution_order(waves)
 
@@ -181,9 +202,9 @@ Tasks per Wave: 5-10 (balanced)
 Average: [AVG] tasks/wave
 
 Cross-Stack Dependencies Examples:
-- frontend_task_123 (LoginForm) depends on:
-  - backend_task_045 (POST /api/auth/login)
-  - backend_task_046 (validate_credentials)
+- 1.2.3 (LoginForm) depends on:
+  - 2.1.1 (POST /api/auth/login)
+  - 2.1.2 (validate_credentials)
 
 ✓ Updated task_registry.json with fullstack dependency graph
 ✓ Ready for parallel development

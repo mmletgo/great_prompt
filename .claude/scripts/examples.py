@@ -87,10 +87,10 @@ def example_3_development_phase():
     )
     print("✓ Wave 1 started (15 tasks, 3 batches)\n")
 
-    # Complete a task
-    print("3. Completing task backend_task_001...")
+    # Complete a task (using dot notation ID)
+    print("3. Completing task 2.1.1...")
     manager.complete_task_full(
-        task_id="backend_task_001",
+        task_id="2.1.1",
         implementation_file="src/api/auth/login.py",
         test_file="tests/api/auth/test_login.py",
         test_coverage=95,
@@ -98,14 +98,14 @@ def example_3_development_phase():
     )
     print("✓ Task completed (both files updated)\n")
 
-    # Complete a batch
+    # Complete a batch (using dot notation IDs)
     print("4. Completing Batch 1...")
     completed = [
-        "backend_task_001",
-        "backend_task_002",
-        "backend_task_003",
-        "backend_task_004",
-        "backend_task_005",
+        "2.1.1",
+        "2.1.2",
+        "2.1.3",
+        "2.1.4",
+        "2.2.1",
     ]
     manager.complete_batch(wave_number=1, completed_tasks=completed, failed_tasks=[])
     print(f"✓ Batch 1 complete ({len(completed)} tasks)\n")
@@ -160,64 +160,72 @@ def example_5_dashboard():
 
 
 def example_6_task_registry_operations():
-    """Example 6: Task Registry Operations"""
+    """Example 6: Task Registry Operations (Tree Structure)"""
     print("=== Example 6: Task Registry Operations ===\n")
 
     tasks = TaskRegistryManager()
 
-    # Add a task
-    print("1. Adding a task...")
-    tasks.add_task(
-        "FE_auth_LoginForm",
+    # Add root task (Level 1 module)
+    print("1. Adding root task (Auth Module)...")
+    auth_module_id = tasks.add_root_task(
+        "frontend",
         {
-            "name": "LoginForm Component",
-            "category": "frontend",
-            "type": "component",
-            "module": "auth",
-            "parent_page": "LoginPage",
-            "status": "pending",
+            "title": "Authentication Module",
+            "type": "module",
+            "description": "User authentication features",
         },
     )
-    print("✓ Task FE_auth_LoginForm added\n")
+    print(f"✓ Root task created with ID: {auth_module_id}\n")
 
-    # Add tasks in batch
-    print("2. Adding multiple tasks in batch...")
-    batch = {
-        "FE_auth_RegisterForm": {
-            "name": "RegisterForm Component",
-            "category": "frontend",
-            "type": "component",
-            "module": "auth",
+    # Add Level 2 task (Page)
+    print("2. Adding page task...")
+    login_page_id = tasks.add_subtask(
+        auth_module_id,
+        {
+            "title": "Login Page",
+            "type": "page",
+            "route": "/login",
         },
-        "FE_auth_PasswordReset": {
-            "name": "PasswordReset Component",
-            "category": "frontend",
-            "type": "component",
-            "module": "auth",
-        },
-    }
-    tasks.add_tasks_batch(batch)
-    print(f"✓ Added {len(batch)} tasks in batch\n")
+    )
+    print(f"✓ Page task created with ID: {login_page_id}\n")
+
+    # Add multiple components in batch (Level 3)
+    print("3. Adding multiple components in batch...")
+    component_ids = tasks.add_subtasks_batch(
+        login_page_id,
+        [
+            {"title": "LoginForm", "type": "component"},
+            {"title": "RegisterForm", "type": "component"},
+            {"title": "PasswordReset", "type": "component"},
+        ],
+    )
+    print(f"✓ Added {len(component_ids)} components: {', '.join(component_ids)}\n")
 
     # Update task status
-    print("3. Updating task status...")
+    print("4. Updating task status...")
     tasks.update_task_status(
-        task_id="FE_auth_LoginForm",
+        task_id=component_ids[0],  # First component (LoginForm)
         status="completed",
         implementation_file="src/components/auth/LoginForm.tsx",
         test_file="src/components/auth/LoginForm.test.tsx",
         test_coverage=95,
         duration_minutes=15.0,
     )
-    print("✓ Task status updated\n")
+    print(f"✓ Task {component_ids[0]} status updated\n")
+
+    # Get task path (breadcrumb)
+    print("5. Getting task path...")
+    path = tasks.get_task_path(component_ids[0])
+    breadcrumb = " > ".join([t["title"] for t in path])
+    print(f"  Path: {breadcrumb}\n")
 
     # Get statistics
-    print("4. Getting statistics...")
+    print("6. Getting statistics...")
     stats = tasks.get_statistics()
     print(f"  Total Tasks: {stats['total_tasks']}")
     print(f"  By Status: {stats['by_status']}")
     print(f"  By Category: {stats['by_category']}")
-    print(f"  Total Waves: {stats['total_waves']}\n")
+    print(f"  By Level: {stats['by_level']}\n")
 
 
 if __name__ == "__main__":

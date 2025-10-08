@@ -77,12 +77,12 @@ designs/                    # 设计产物（系统生成）
     ├── login-page.md
     └── ...
 
-.claude_tasks/              # 任务管理（系统生成）
+.claude_tasks/              # 任务管理(系统生成)
 ├── state.json              # 全局状态
-├── task_registry.json      # 任务清单 + 跨栈依赖图
+├── task_registry.json      # 任务清单(树状结构) + 跨栈依赖图
 └── contexts/               # 每个任务的详细上下文
-    ├── frontend_task_001_context.md
-    ├── backend_task_001_context.md
+    ├── 1_1_1_context.md    # 前端任务 1.1.1
+    ├── 2_1_1_context.md    # 后端任务 2.1.1
     └── ...
 ```
 

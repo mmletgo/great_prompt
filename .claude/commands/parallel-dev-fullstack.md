@@ -95,7 +95,7 @@ from utils import ProjectManager
 
 manager = ProjectManager()
 manager.complete_task_full(
-    task_id="FE_auth_LoginForm",  # Task ID from task_registry.json
+    task_id="1.2.3",  # Task ID in dot notation (e.g., "1.2.3")
     implementation_file="src/components/auth/LoginForm.tsx",
     test_file="src/components/auth/LoginForm.test.tsx",
     test_coverage=95,  # Percentage
@@ -109,7 +109,7 @@ from utils import ProjectManager
 
 manager = ProjectManager()
 manager.fail_task_full(
-    task_id="FE_auth_LoginForm",
+    task_id="1.2.3",
     error="Test coverage below 80% threshold"
 )
 ```
@@ -127,7 +127,7 @@ from utils import ProjectManager
 manager = ProjectManager()
 
 # After batch completes
-completed = ["FE_auth_LoginForm", "FE_auth_RegisterForm", "FE_auth_PasswordReset"]
+completed = ["1.2.1", "1.2.2", "1.2.3"]  # Dot notation IDs
 failed = []  # Task IDs that failed in this batch
 
 manager.complete_batch(
@@ -171,31 +171,31 @@ Batch 1/2: Creating 5 developer subagents SIMULTANEOUSLY:
 
 <subagent_task>
 Agent: @backend-developer
-Input: backend_task_020
+Input: 2.1.1
 [... full task details ...]
 </subagent_task>
 
 <subagent_task>
 Agent: @backend-developer
-Input: backend_task_021
+Input: 2.1.2
 [... full task details ...]
 </subagent_task>
 
 <subagent_task>
 Agent: @backend-developer
-Input: backend_task_022
+Input: 2.1.3
 [... full task details ...]
 </subagent_task>
 
 <subagent_task>
 Agent: @backend-developer
-Input: backend_task_023
+Input: 2.1.4
 [... full task details ...]
 </subagent_task>
 
 <subagent_task>
 Agent: @backend-developer
-Input: backend_task_024
+Input: 2.1.5
 [... full task details ...]
 </subagent_task>
 
@@ -207,31 +207,31 @@ Batch 2/2: Creating 5 developer subagents SIMULTANEOUSLY:
 
 <subagent_task>
 Agent: @backend-developer
-Input: backend_task_025
+Input: 2.2.1
 [... full task details ...]
 </subagent_task>
 
 <subagent_task>
 Agent: @backend-developer
-Input: backend_task_026
+Input: 2.2.2
 [... full task details ...]
 </subagent_task>
 
 <subagent_task>
 Agent: @backend-developer
-Input: backend_task_027
+Input: 2.2.3
 [... full task details ...]
 </subagent_task>
 
 <subagent_task>
 Agent: @backend-developer
-Input: backend_task_028
+Input: 2.2.4
 [... full task details ...]
 </subagent_task>
 
 <subagent_task>
 Agent: @backend-developer
-Input: backend_task_029
+Input: 2.2.5
 [... full task details ...]
 </subagent_task>
 
@@ -258,32 +258,32 @@ Batch 1/6: Creating 5 developer subagents:
 <subagent_task>
 Agent: @backend-developer
 Input:
-- Task ID: backend_task_020
-- Context: .claude_tasks/contexts/backend_task_020_context.md
+- Task ID: 2.1.1
+- Context: .claude_tasks/contexts/2_1_1_context.md
 Task: Implement validateUserCredentials function with TDD
 </subagent_task>
 
 <subagent_task>
 Agent: @backend-developer
 Input:
-- Task ID: backend_task_021
-- Context: .claude_tasks/contexts/backend_task_021_context.md
+- Task ID: 2.1.2
+- Context: .claude_tasks/contexts/2_1_2_context.md
 Task: Implement hashPassword function with TDD
 </subagent_task>
 
 <subagent_task>
 Agent: @backend-developer
 Input:
-- Task ID: backend_task_022
-- Context: .claude_tasks/contexts/backend_task_022_context.md
+- Task ID: 2.1.3
+- Context: .claude_tasks/contexts/2_1_3_context.md
 Task: Implement generateJWT function with TDD
 </subagent_task>
 
 <subagent_task>
 Agent: @backend-developer
 Input:
-- Task ID: backend_task_024
-- Context: .claude_tasks/contexts/backend_task_024_context.md
+- Task ID: 2.1.4
+- Context: .claude_tasks/contexts/2_1_4_context.md
 Task: Implement generateRefreshToken function with TDD
 </subagent_task>
 
@@ -295,15 +295,15 @@ from utils import ProjectManager
 manager = ProjectManager()
 manager.complete_batch(
     wave_number=3,
-    completed_tasks=["backend_task_020", "backend_task_021", "backend_task_022", "backend_task_023", "backend_task_024"],
+    completed_tasks=["2.1.1", "2.1.2", "2.1.3", "2.1.4", "2.1.5"],
     failed_tasks=[]  # Add any failed task IDs here
 )
 ```
 
-✓ Batch 1/6 complete: 5/5 tasks (backend_task_020-024)
+✓ Batch 1/6 complete: 5/5 tasks (2.1.1-2.1.5)
 
 Batch 2/6: Creating 5 developer subagents:
-[5 <subagent_task> blocks for backend_task_025-029]
+[5 <subagent_task> blocks for 2.2.1-2.2.5]
 
 [Wait for Batch 2 to complete]
 
@@ -311,33 +311,33 @@ Batch 2/6: Creating 5 developer subagents:
 ```python
 manager.complete_batch(
     wave_number=3,
-    completed_tasks=["backend_task_025", "backend_task_026", "backend_task_027", "backend_task_028", "backend_task_029"],
+    completed_tasks=["2.2.1", "2.2.2", "2.2.3", "2.2.4", "2.2.5"],
     failed_tasks=[]
 )
 ```
 
-✓ Batch 2/6 complete: 5/5 tasks (backend_task_025-029)
+✓ Batch 2/6 complete: 5/5 tasks (2.2.1-2.2.5)
 
 Batch 3/6: Creating 5 developer subagents:
-[5 <subagent_task> blocks for backend_task_030-034]
+[5 <subagent_task> blocks for 2.3.1-2.3.5]
 
 [Wait for Batch 3 to complete]
-✓ Batch 3/6 complete: 5/5 tasks (backend_task_030-034)
+✓ Batch 3/6 complete: 5/5 tasks (2.3.1-2.3.5)
 
 Batch 4/6: Creating 5 developer subagents:
-[5 <subagent_task> blocks for backend_task_035-039]
+[5 <subagent_task> blocks for 2.4.1-2.4.5]
 
 [Wait for Batch 4 to complete]
-✓ Batch 4/6 complete: 5/5 tasks (backend_task_035-039)
+✓ Batch 4/6 complete: 5/5 tasks (2.4.1-2.4.5)
 
 Batch 5/6: Creating 5 developer subagents:
-[5 <subagent_task> blocks for backend_task_040-044]
+[5 <subagent_task> blocks for 2.5.1-2.5.5]
 
 [Wait for Batch 5 to complete]
-✓ Batch 5/6 complete: 5/5 tasks (backend_task_040-044)
+✓ Batch 5/6 complete: 5/5 tasks (2.5.1-2.5.5)
 
 Batch 6/6: Creating 2 developer subagents:
-[2 <subagent_task> blocks for backend_task_045-046]
+[2 <subagent_task> blocks for 2.6.1-2.6.2]
 
 [Wait for Batch 6 to complete]
 
@@ -345,12 +345,12 @@ Batch 6/6: Creating 2 developer subagents:
 ```python
 manager.complete_batch(
     wave_number=3,
-    completed_tasks=["backend_task_045", "backend_task_046"],
+    completed_tasks=["2.6.1", "2.6.2"],
     failed_tasks=[]
 )
 ```
 
-✓ Batch 6/6 complete: 2/2 tasks (backend_task_045-046)
+✓ Batch 6/6 complete: 2/2 tasks (2.6.1-2.6.2)
 
 **Complete Wave 3**:
 ```python
@@ -456,10 +456,10 @@ else:
 <subagent_task>
 Agent: @backend-developer
 Input:
-- Task ID: backend_XXX
-- Context file: .claude_tasks/contexts/backend_task_XXX_context.md
+- Task ID: 2.1.3  # Dot notation ID
+- Context file: .claude_tasks/contexts/2_1_3_context.md
 - Task type: [API/Service/Repository/Validation/Utility]
-- Dependencies: [list of completed dependency task IDs]
+- Dependencies: [list of completed dependency task IDs in dot notation]
 - PRD reference: docs/prd.md
 - Architecture: docs/fullstack-architecture.md
 
@@ -507,11 +507,11 @@ Success criteria:
 <subagent_task>
 Agent: @frontend-developer
 Input:
-- Task ID: frontend_XXX
-- Context file: .claude_tasks/contexts/frontend_task_XXX_context.md
+- Task ID: 1.2.3  # Dot notation ID
+- Context file: .claude_tasks/contexts/1_2_3_context.md
 - Task type: [Page/Component]
 - Design reference: designs/wireframes/[page].md
-- Dependencies: [list of completed dependency task IDs]
+- Dependencies: [list of completed dependency task IDs in dot notation]
 - UX spec: docs/front-end-spec.md
 
 Task:
@@ -666,9 +666,9 @@ After all waves complete, verify cross-stack integration:
 #### 3.1 API Contract Validation
 For each frontend → backend dependency:
 ```
-Frontend component: frontend_008 (LoginForm)
+Frontend component: 1.2.3 (LoginForm)
   → Calls: POST /api/auth/login
-Backend endpoint: backend_009 (login_api)
+Backend endpoint: 2.1.1 (login_api)
   → Implements: POST /api/auth/login
 
 Verify:
@@ -694,6 +694,11 @@ Create `.claude_tasks/integration_report.md`:
 1. LoginForm → POST /api/auth/login ✓
 2. ProfileEditor → GET /api/users/:id ✓
 3. ProductCard → GET /api/products ✓
+
+Task IDs (dot notation):
+- 1.2.3 (LoginForm) → 2.1.1 (POST /api/auth/login) ✓
+- 1.3.1 (ProfileEditor) → 2.2.1 (GET /api/users/:id) ✓
+- 3.1.2 (ProductCard) → 4.1.1 (GET /api/products) ✓
 ...
 
 ## Component Dependencies

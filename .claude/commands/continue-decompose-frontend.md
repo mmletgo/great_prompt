@@ -14,8 +14,22 @@ Continue decomposing frontend tasks to component level (React/Vue/Angular compon
 ## Steps
 
 ### 1. Load State and Get Next Batch
-Read state and task registry.
-Get next 5-10 pending tasks.
+Read state and task registry using tree structure.
+Get next 5-10 pending tasks using `get_tasks_by_status("pending")`.
+
+**Python example**:
+```python
+task_mgr = TaskRegistryManager()
+
+# Get pending tasks that need decomposition
+pending_tasks = task_mgr.get_tasks_by_status("pending", category="frontend")
+
+# Filter for tasks needing decomposition (Level 1 or 2)
+tasks_to_decompose = [t for t in pending_tasks if t["level"] in [1, 2]]
+
+# Get next batch (5-10 tasks)
+batch = tasks_to_decompose[:10]
+```
 
 ### 2. Process Each Frontend Task
 For each task in batch:
@@ -31,16 +45,39 @@ For each task in batch:
 - Mark status as "ready"
 - **Immediately invoke ContextGenerator** (see step 5)
 
-#### If task.type == "module":
-- **Decompose to Page level**
-- Create task for each page in this module
+#### If task.type == "module" (Level 1):
+- **Decompose to Page level (Level 2)**
+- Use `add_subtask()` to create page tasks under this module
+- Each page gets dot notation ID based on parent (e.g., parent="1" → pages="1.1", "1.2", etc.)
 - Reference corresponding wireframe file
-- Save to task_registry (see step 4)
 - **DO NOT mark module as complete - pages must be decomposed next**
+- Parent status automatically changes to "decomposed"
 
-#### If task.type == "page":
-- **MUST Decompose to Component level** (non-negotiable)
-- Analyze wireframe to identify ALL UI components (no matter how small)
+**Python example**:
+```python
+task_mgr = TaskRegistryManager()
+
+# Create page tasks under module "1"
+login_page_id = task_mgr.add_subtask("1", {
+    "title": "Login Page",
+    "type": "page",
+    "route": "/login",
+    "wireframe": "designs/wireframes/login.md"
+})  # Returns "1.1"
+
+signup_page_id = task_mgr.add_subtask("1", {
+    "title": "Signup Page",
+    "type": "page",
+    "route": "/signup",
+    "wireframe": "designs/wireframes/signup.md"
+})  # Returns "1.2"
+```
+
+#### If task.type == "page" (Level 2):
+- **MUST Decompose to Component level (Level 3)** (non-negotiable)
+- Analyze wireframe to identify ALL UI components
+- Use `add_subtasks_batch()` to create multiple component tasks at once
+- Each component gets dot notation ID (e.g., parent="1.1" → components="1.1.1", "1.1.2", etc.)
 - Create tasks for EVERY component:
   - Page container component (always required)
   - Section components (header, main, sidebar, footer)
@@ -48,9 +85,21 @@ For each task in batch:
   - State management components (if needed)
   - API integration components (if needed)
 - A "simple" page still has minimum 5-10 components
-- Save to task_registry (see step 4)
-- **For each new component task, invoke ContextGenerator** (see step 5)
 - **DO NOT skip decomposition** - every page must create component tasks
+- Parent status automatically changes to "decomposed"
+
+**Python example**:
+```python
+# Create component tasks under page "1.1"
+component_ids = task_mgr.add_subtasks_batch("1.1", [
+    {"title": "LoginForm", "type": "component"},
+    {"title": "LoginHeader", "type": "component"},
+    {"title": "SocialLoginButtons", "type": "component"},
+    {"title": "ForgotPasswordLink", "type": "component"}
+])  # Returns ["1.1.1", "1.1.2", "1.1.3", "1.1.4"]
+```
+
+**For each new component task, invoke ContextGenerator** (see step 5)
 
 ### 3. Invoke FrontendDecomposer Subagents (Parallel)
 
