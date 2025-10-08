@@ -323,133 +323,11 @@ Example merged result:
 **The deletion of temporary files (.claude_tasks/backend_decomposition_temp/backend_task_*.json) MUST be performed by you only after confirming that all tasks have been successfully merged into task_registry.json. The Python integration script MUST NOT delete temporary files directly.**
 
 ### 6. Update Checkpoint
-3. For each sub-batch (1 to num_batches):
-   - Output: "Processing sub-batch {i} of {num_batches} ({size} functions)..."
-   - Create subagents: up to 10 per sub-batch
-   - Confirm: "✓ Sub-batch {i} complete: {size}/{size} contexts generated"
-4. Final verification: "✓ ALL {num_batches} batches complete: {function_count}/{function_count} contexts (100% coverage)"
-
-**For ALL function-level tasks, process in sub-batches of 10**:
-
-**CRITICAL - PARALLEL EXECUTION FORMAT**:
-- For each sub-batch, create ALL subagent_task blocks in ONE response
-- DO NOT create subagents one-by-one across multiple responses
-- Output 10 `<subagent_task>` blocks together, then wait for all to complete
-
-```
-For each sub-batch of up to 10 function tasks (create ALL simultaneously):
-
-<subagent_task>
-Agent: @context-generator
-Input:
-- Task ID: backend_task_XXX
-- Function metadata: from decomposer output or task_registry
-- API spec: from docs/prd.md
-- Architecture: docs/fullstack-architecture.md
-
-Task:
-1. Read function metadata from task_registry
-2. Extract function requirements:
-   - Function signature
-   - Input parameters and types
-   - Return type
-   - Business logic steps
-   - Database operations
-   - Dependencies
-   - Error cases
-3. Generate comprehensive context file
-
-Output: .claude_tasks/contexts/backend_task_XXX_context.md with:
-
-# Task XXX: [FunctionName]
-
-## Function Overview
-[Description and purpose]
-
-## Function Specification
-### Function Signature
-```typescript
-async function functionName(params): Promise<ReturnType>
-```
-
-### Input Parameters
-- param1: type - description - validation rules
-- param2: type - description - validation rules
-
-### Return Value
-- type: ReturnType
-- success case: {...}
-- error case: {...}
-
-### HTTP Details (if endpoint)
-- Method: POST/GET/PUT/DELETE
-- Route: /api/resource
-- Status codes: 200, 400, 401, 500
-
-## Business Logic
-1. Step 1: [detailed description]
-2. Step 2: [detailed description]
-3. ...
-
-## Database Operations
-- SELECT from table WHERE condition
-- INSERT into table VALUES (...)
-- UPDATE table SET ... WHERE ...
-
-## Dependencies
-- backend_task_YYY: [what it provides]
-- backend_task_ZZZ: [what it provides]
-
-## Error Handling
-### Error Case 1: [ErrorType]
-- Condition: [when it occurs]
-- HTTP Code: 400
-- Message: "..."
-- Recovery: [how to handle]
-
-## Security Considerations
-- Authentication required: Yes/No
-- Authorization: [required permissions]
-- Input sanitization: [what to sanitize]
-- Rate limiting: [limits]
-
-## Performance
-- Expected response time: <200ms
-- Database indexes needed: [list]
-- Caching strategy: [if any]
-
-## TDD Test Cases
-### Test Case 1: Success Path
-```typescript
-// Test code
-```
-
-### Test Case 2: Validation Error
-```typescript
-// Test code
-```
-
-### Test Case 3: Database Error
-```typescript
-// Test code
-```
-
-## Related Files
-- Target file: src/[layer]/[module]/functionName.ts
-- Test file: src/[layer]/[module]/functionName.test.ts
-- Dependencies: [list of imported files]
-</subagent_task>
-```
-
-**Wait for current sub-batch to complete before proceeding to next sub-batch.**
-**Wait for ALL sub-batches to complete before proceeding to step 7.**
-
-### 7. Update Checkpoint
 Save progress after each batch:
 - Update `state.json` with latest checkpoint
 - Save `task_registry.json` with all new tasks
 
-### 8. Output Summary
+### 7. Output Summary
 ```
 === Decomposition Phase: {current_phase} ===
 Processing backend batch...
@@ -483,18 +361,10 @@ Archived 3 temp files
 Next available ID: backend_task_069
 
 ✓ Processed [N] tasks
-✓ [X] functions ready, [Y] services need decomposition
+✓ [X] functions ready (status="ready")
+✓ [Y] services need further decomposition (status="pending")
 
-Context Generation Verification:
-  - Function tasks in batch: [X]
-  - Sub-batches processed: [Y] (max 10 per sub-batch)
-  - Sub-batch 1: 10/10 contexts ✓
-  - Sub-batch 2: 10/10 contexts ✓
-  - Sub-batch 3: 7/7 contexts ✓
-  - Total contexts generated: [X]
-  ✓ ALL sub-batches complete: [X]/[X] contexts (100% coverage)
-
-Next command: [/continue-decompose-backend OR /build-deps-fullstack]
+Next command: [/continue-decompose-backend OR /generate-backend-contexts OR /build-deps-fullstack]
 ```
 
 ## Backend Function Types

@@ -303,194 +303,17 @@ Example merged result:
 #### 5.4 Temporary File Cleanup Responsibility
 **The deletion of temporary files (.claude_tasks/frontend_decomposition_temp/frontend_task_*.json) MUST be performed by you only after confirming that all tasks have been successfully merged into task_registry.json. The Python integration script MUST NOT delete temporary files directly.**
 
-### 6. Invoke Context Generator for Component Tasks (Parallel)
-
-**After step 5 integration completes**, invoke context generators.
-
-**CRITICAL - ONLY FOR LEVEL 3 IMPLEMENTATION TASKS**:
-- Context generation is ONLY for Level 3 implementation tasks (`type == "component"`)
-- DO NOT generate contexts for Level 2 page integration tasks (they dynamically fetch child states)
-- DO NOT generate contexts for Level 1 module integration tasks (they dynamically fetch child states)
-- Integration tasks will get their "context" at execution time from child task states
-
-**Trigger condition**: For each task where `level == 3` AND `type == "component"`
-
-**This includes**:
-- Existing component tasks (already at level 3)
-- Newly decomposed component tasks (just created in step 3-4)
-
-**CRITICAL - BATCHED PARALLEL PROCESSING (NO SKIPPING)**:
-- You MUST create ContextGenerator subagents for EVERY SINGLE component task in this batch
-- Process in sub-batches of maximum 10 subagents at a time for manageability
-- Count total component tasks FIRST, calculate number of sub-batches needed
-- Process ALL sub-batches - DO NOT stop after first sub-batch
-- Each sub-batch must complete before starting next sub-batch
-
-**Batching Rules**:
-1. Count total: `component_count = tasks where level==3 AND type=="component"`
-2. Calculate batches: `num_batches = ceil(component_count / 10)`
-3. **MANDATORY PARALLEL EXECUTION WITHIN EACH SUB-BATCH**:
-   - Within each sub-batch, you MUST create ALL subagents AT THE SAME TIME
-   - DO NOT process sub-batch items one by one
-   - DO NOT wait for one subagent to finish before starting the next
-   - Create 10 `<subagent_task>` blocks simultaneously in one response
-   - Example: For sub-batch of 10, output 10 subagent blocks together, not sequentially
-4. Track progress: "Processing batch X of Y (10 components)..."
-5. Verify completion: After ALL batches, confirm total = component_count
-
-**Example - 25 component tasks**:
-```
-Total component tasks: 25
-Sub-batches needed: 3 (10 + 10 + 5)
-
-Processing sub-batch 1 of 3 (10 components)...
-  Creating ALL 10 ContextGenerator subagents SIMULTANEOUSLY:
-  
-  <subagent_task>Agent: @context-generator (frontend_task_008 - LoginForm)</subagent_task>
-  <subagent_task>Agent: @context-generator (frontend_task_009 - EmailInput)</subagent_task>
-  <subagent_task>Agent: @context-generator (frontend_task_010 - PasswordInput)</subagent_task>
-  ... [ALL 10 subagent blocks in ONE response]
-  
-  ✓ Sub-batch 1 complete: 10/10 contexts generated
-
-Processing sub-batch 2 of 3 (10 components)...
-  Creating 10 ContextGenerator subagents in parallel:
-  - frontend_task_018 (DashboardHeader)
-  - frontend_task_019 (StatsCard)
-  ... (10 total)
-  ✓ Sub-batch 2 complete: 10/10 contexts generated
-
-Processing sub-batch 3 of 3 (5 components)...
-  Creating 5 ContextGenerator subagents in parallel:
-  - frontend_task_028 (SettingsForm)
-  ... (5 total)
-  ✓ Sub-batch 3 complete: 5/5 contexts generated
-
-✓ ALL batches complete: 25/25 contexts generated (100% coverage)
-```
-
-**FORBIDDEN - PARTIAL BATCH PROCESSING**:
-- ❌ "Processing first batch, skipping remaining" 
-- ❌ "Starting with batch 1, will continue later"
-- ❌ "Key components in batch 1, others optional"
-- ❌ "Processing component 1... Processing component 2..." (串行执行)
-- ❌ "Let me continue with component X" (one-by-one 处理)
-- ✅ REQUIRED: "Creating ALL 10 subagents simultaneously in one response"
-- ✅ REQUIRED: "ALL X batches processed" / "100% coverage across all batches"
-
-**Verification Required**:
-1. Count component tasks: `component_count = tasks where level==3 AND type=="component"`
-2. Calculate sub-batches: `num_batches = ceil(component_count / 10)`
-3. For each sub-batch (1 to num_batches):
-   - Output: "Processing sub-batch {i} of {num_batches} ({size} components)..."
-   - Create subagents: up to 10 per sub-batch
-   - Confirm: "✓ Sub-batch {i} complete: {size}/{size} contexts generated"
-4. Final verification: "✓ ALL {num_batches} batches complete: {component_count}/{component_count} contexts (100% coverage)"
-
-**For ALL component-level tasks, process in sub-batches of 10**:
-
-**CRITICAL - PARALLEL EXECUTION FORMAT**:
-- For each sub-batch, create ALL subagent_task blocks in ONE response
-- DO NOT create subagents one-by-one across multiple responses
-- Output 10 `<subagent_task>` blocks together, then wait for all to complete
-
-```
-For each sub-batch of up to 10 component tasks (create ALL simultaneously):
-
-<subagent_task>
-Agent: @context-generator
-Input:
-- Task ID: frontend_task_XXX
-- Component metadata: from decomposer output or task_registry
-- Design reference: designs/wireframes/[page-name].md
-- Parent page context: from parent task
-
-Task:
-1. Read component metadata from task_registry
-2. Read design reference (wireframe file)
-3. Extract component requirements:
-   - Props and their types
-   - State variables
-   - Hooks needed
-   - API calls
-   - Event handlers
-4. Generate comprehensive context file
-
-Output: .claude_tasks/contexts/frontend_task_XXX_context.md with:
-
-# Task XXX: [ComponentName]
-
-## Component Overview
-[Description from wireframe]
-
-## Component Specification
-### Props
-- prop1: type - description
-- prop2: type - description
-
-### State
-- state1: type - initial value
-
-### Hooks
-- useState: [what state]
-- useEffect: [what side effect]
-
-### Events
-- onClick: [behavior]
-- onChange: [behavior]
-
-### API Calls
-- GET /api/endpoint: [purpose]
-
-## UI States
-- Default state
-- Loading state
-- Error state
-- Success state
-- Empty state
-
-## Parent Context
-[Information from parent page/container]
-
-## Design Reference
-See: designs/wireframes/[page-name].md
-
-## TDD Test Cases
-### Test Case 1: Rendering
-[Test code]
-
-### Test Case 2: User Interaction
-[Test code]
-
-### Test Case 3: API Integration
-[Test code]
-
-## Accessibility
-- ARIA labels
-- Keyboard navigation
-- Screen reader support
-
-## Related Files
-- Target file: src/components/[path]/ComponentName.tsx
-- Test file: src/components/[path]/ComponentName.test.tsx
-- Story file: src/components/[path]/ComponentName.stories.tsx
-</subagent_task>
-```
-
-**Wait for current sub-batch to complete before proceeding to next sub-batch.**
-**Wait for ALL sub-batches to complete before proceeding to step 7.**
-
-### 7. Update Checkpoint
+### 6. Update Checkpoint
 Save progress after each batch:
 - Update `state.json` with latest checkpoint
 - Save `task_registry.json` with all new tasks
 
-### 8. Check Completion
+### 7. Check Completion
 If all tasks are at component level (type == "component"):
 - Set `decomposition_phase.frontend_status = "completed"`
 - Output completion message
 
-### 9. Output Summary
+### 8. Output Summary
 ```
 === Decomposition Phase: {current_phase} ===
 Resuming from checkpoint: frontend_task_XXX
@@ -527,21 +350,13 @@ Archived 3 temp files
 Next available ID: frontend_task_042
 
 ✓ Processed [N] tasks in this batch
-✓ [X] components ready, [Y] tasks need decomposition
-
-Context Generation Verification:
-  - Component tasks in batch: [X]
-  - Sub-batches processed: [Y] (max 10 per sub-batch)
-  - Sub-batch 1: 10/10 contexts ✓
-  - Sub-batch 2: 10/10 contexts ✓
-  - Sub-batch 3: 5/5 contexts ✓
-  - Total contexts generated: [X]
-  ✓ ALL sub-batches complete: [X]/[X] contexts (100% coverage)
+✓ [X] components ready (status="ready")
+✓ [Y] pages need further decomposition (status="pending")
 
 Updated checkpoint: frontend_task_XXX
 Frontend decomposition: [in_progress | completed]
 
-Next command: [/continue-decompose-frontend OR /init-decompose-backend]
+Next command: [/continue-decompose-frontend OR /generate-frontend-contexts OR /init-decompose-backend]
 ```
 
 ## Component Level Hierarchy
