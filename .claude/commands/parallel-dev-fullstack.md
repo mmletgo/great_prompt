@@ -23,8 +23,10 @@ Parse workers argument (default: 5).
 **Wave Execution Model**:
 - Waves are executed SERIALLY (one wave at a time, respecting dependencies)
 - Within each wave, tasks are divided into BATCHES
-- Within each batch, tasks execute in PARALLEL
-- Wait for current batch to complete before starting next batch
+- Batch size = worker count (e.g., workers=5 means 5 tasks per batch)
+- Batches execute SERIALLY (one batch at a time within wave)
+- Tasks within a batch execute in PARALLEL
+- Wait for current batch to complete before creating next batch
 - Wait for current wave to complete before starting next wave
 
 For each wave in execution_order:
@@ -35,33 +37,35 @@ Determine task types in current wave:
 - Frontend tasks: Use @frontend-developer
 - Mixed wave: Use appropriate developer for each task type
 
-#### 2.2 Create Developer Subagents in Batches
+#### 2.2 Create Developer Subagents for Wave
 
-**CRITICAL - BATCHED PARALLEL EXECUTION WITHIN WAVE**:
-- Divide wave tasks into BATCHES (maximum 10 tasks per batch)
-- Within each batch, create ALL subagents SIMULTANEOUSLY
-- Wait for current batch to complete before starting next batch
-- This ensures manageable parallelism and memory usage
-- ALL tasks in wave MUST be processed (100% wave coverage)
+**CRITICAL - BATCH EXECUTION WITHIN WAVE**:
+- Divide wave tasks into batches of size = worker count
+- Process batches SERIALLY (one batch at a time)
+- Within each batch, create ALL `<subagent_task>` blocks in ONE response
+- Wait for current batch to complete before creating next batch
+- Continue until ALL tasks in wave are processed (100% wave coverage)
 
-**Batching Rules**:
+**Execution Rules**:
 1. Count tasks in wave: `wave_task_count = tasks in current wave`
-2. Calculate batches: `num_batches = ceil(wave_task_count / 10)`
-3. For each batch (1 to num_batches):
-   - **Create multiple `<subagent_task>` blocks together (one block per task)**
-   - Output all blocks in a SINGLE message to enable parallel execution
-   - Each task gets its own `<subagent_task>` block
-   - All subagents in the batch execute in parallel
-   - Wait for ALL subagents in this batch to complete
-   - Then proceed to next batch
-4. After all batches in wave complete, proceed to next wave
+2. Calculate batches: `num_batches = ceil(wave_task_count / workers)`
+3. **Process batches SERIALLY**:
+   - Batch 1: Create `workers` subagent blocks in ONE response
+   - Wait for Batch 1 to complete
+   - Batch 2: Create next `workers` subagent blocks in ONE response
+   - Wait for Batch 2 to complete
+   - Continue until all batches complete
+4. Proceed to next wave
 
-**CRITICAL - How to Create Parallel Subagents in a Batch**:
+**CRITICAL - How to Create Parallel Subagents in Batches**:
 
-You MUST output ALL `<subagent_task>` blocks for the entire batch in a SINGLE response. Example for a batch of 10 tasks:
+For a wave with 10 tasks and workers=5, you create 2 batches:
 
 ```
-Batch 1 of 3 (10 tasks) - Creating ALL 10 subagents SIMULTANEOUSLY:
+Wave 3: Backend Service Layer (10 tasks, workers=5)
+Calculated: 10 / 5 = 2 batches
+
+Batch 1/2: Creating 5 developer subagents SIMULTANEOUSLY:
 
 <subagent_task>
 Agent: @backend-developer
@@ -93,6 +97,12 @@ Input: backend_task_024
 [... full task details ...]
 </subagent_task>
 
+[Wait for ALL 5 subagents in Batch 1 to complete]
+
+✓ Batch 1/2 complete: 5/5 tasks finished
+
+Batch 2/2: Creating 5 developer subagents SIMULTANEOUSLY:
+
 <subagent_task>
 Agent: @backend-developer
 Input: backend_task_025
@@ -122,20 +132,26 @@ Agent: @backend-developer
 Input: backend_task_029
 [... full task details ...]
 </subagent_task>
+
+[Wait for ALL 5 subagents in Batch 2 to complete]
+
+✓ Batch 2/2 complete: 5/5 tasks finished
 ```
 
 **CRITICAL**: 
-- You MUST create ALL 10 `<subagent_task>` blocks in ONE response
-- DO NOT create one subagent and wait for it to complete
-- DO NOT create subagents one by one across multiple responses
-- ALL blocks must be in the SAME response for parallel execution
+- Batch 1: Create 5 `<subagent_task>` blocks in ONE response, then WAIT
+- Batch 2: After Batch 1 completes, create next 5 blocks in ONE response
+- DO NOT create all 10 subagents at once
+- DO NOT create subagents one by one
+- Each batch's blocks must be in the SAME response
+- Process batches SERIALLY, not in parallel
 
 **Example - Wave 3 has 27 tasks, workers=5**:
 ```
-Wave 3: Backend Service Layer (27 tasks)
-Batches needed: 3 (10 + 10 + 7)
+Wave 3: Backend Service Layer (27 tasks, workers=5)
+Calculated: ceil(27 / 5) = 6 batches
 
-Batch 1 of 3 (10 tasks) - Creating ALL 10 developer subagents SIMULTANEOUSLY:
+Batch 1/6: Creating 5 developer subagents:
 
 <subagent_task>
 Agent: @backend-developer
@@ -164,145 +180,89 @@ Task: Implement generateJWT function with TDD
 <subagent_task>
 Agent: @backend-developer
 Input:
-- Task ID: backend_task_023
-- Context: .claude_tasks/contexts/backend_task_023_context.md
-Task: Implement validateEmail function with TDD
-</subagent_task>
-
-<subagent_task>
-Agent: @backend-developer
-Input:
 - Task ID: backend_task_024
 - Context: .claude_tasks/contexts/backend_task_024_context.md
-Task: Implement checkPasswordStrength function with TDD
+Task: Implement generateRefreshToken function with TDD
 </subagent_task>
 
-<subagent_task>
-Agent: @backend-developer
-Input:
-- Task ID: backend_task_025
-- Context: .claude_tasks/contexts/backend_task_025_context.md
-Task: Implement generateResetToken function with TDD
-</subagent_task>
+[Wait for ALL 5 subagents in Batch 1 to complete]
+✓ Batch 1/6 complete: 5/5 tasks (backend_task_020-024)
 
-<subagent_task>
-Agent: @backend-developer
-Input:
-- Task ID: backend_task_026
-- Context: .claude_tasks/contexts/backend_task_026_context.md
-Task: Implement sendVerificationEmail function with TDD
-</subagent_task>
+Batch 2/6: Creating 5 developer subagents:
+[5 <subagent_task> blocks for backend_task_025-029]
 
-<subagent_task>
-Agent: @backend-developer
-Input:
-- Task ID: backend_task_027
-- Context: .claude_tasks/contexts/backend_task_027_context.md
-Task: Implement createUserSession function with TDD
-</subagent_task>
+[Wait for Batch 2 to complete]
+✓ Batch 2/6 complete: 5/5 tasks (backend_task_025-029)
 
-<subagent_task>
-Agent: @backend-developer
-Input:
-- Task ID: backend_task_028
-- Context: .claude_tasks/contexts/backend_task_028_context.md
-Task: Implement revokeSession function with TDD
-</subagent_task>
+Batch 3/6: Creating 5 developer subagents:
+[5 <subagent_task> blocks for backend_task_030-034]
 
-<subagent_task>
-Agent: @backend-developer
-Input:
-- Task ID: backend_task_029
-- Context: .claude_tasks/contexts/backend_task_029_context.md
-Task: Implement verifyEmail function with TDD
-</subagent_task>
+[Wait for Batch 3 to complete]
+✓ Batch 3/6 complete: 5/5 tasks (backend_task_030-034)
 
-Now 10 subagents execute in parallel with worker pool (5 concurrent):
-  [Running] 020, 021, 022, 023, 024 (5 workers busy)
-  [Queued]  025, 026, 027, 028, 029 (waiting for available workers)
-  
-  ✓ backend_task_022 completed (1.8 min) - Worker freed
-  [Running] backend_task_025 (filled empty worker slot)
-  
-  ✓ backend_task_021 completed (2.1 min) - Worker freed
-  [Running] backend_task_026 (filled empty worker slot)
-  
-  ... continue until all 10 tasks complete
-  
-✓ Batch 1 complete: 10/10 tasks
+Batch 4/6: Creating 5 developer subagents:
+[5 <subagent_task> blocks for backend_task_035-039]
 
-[Now create Batch 2 with same pattern - ALL 10 subagents in one response]
+[Wait for Batch 4 to complete]
+✓ Batch 4/6 complete: 5/5 tasks (backend_task_035-039)
 
-Batch 2 of 3 (10 tasks) - Creating ALL 10 developer subagents SIMULTANEOUSLY:
+Batch 5/6: Creating 5 developer subagents:
+[5 <subagent_task> blocks for backend_task_040-044]
 
-<subagent_task>Agent: @backend-developer (backend_task_030)</subagent_task>
-<subagent_task>Agent: @backend-developer (backend_task_031)</subagent_task>
-<subagent_task>Agent: @backend-developer (backend_task_032)</subagent_task>
-<subagent_task>Agent: @backend-developer (backend_task_033)</subagent_task>
-<subagent_task>Agent: @backend-developer (backend_task_034)</subagent_task>
-<subagent_task>Agent: @backend-developer (backend_task_035)</subagent_task>
-<subagent_task>Agent: @backend-developer (backend_task_036)</subagent_task>
-<subagent_task>Agent: @backend-developer (backend_task_037)</subagent_task>
-<subagent_task>Agent: @backend-developer (backend_task_038)</subagent_task>
-<subagent_task>Agent: @backend-developer (backend_task_039)</subagent_task>
+[Wait for Batch 5 to complete]
+✓ Batch 5/6 complete: 5/5 tasks (backend_task_040-044)
 
-✓ Batch 2 complete: 10/10 tasks
+Batch 6/6: Creating 2 developer subagents:
+[2 <subagent_task> blocks for backend_task_045-046]
 
-Batch 3 of 3 (7 tasks) - Creating ALL 7 developer subagents SIMULTANEOUSLY:
+[Wait for Batch 6 to complete]
+✓ Batch 6/6 complete: 2/2 tasks (backend_task_045-046)
 
-<subagent_task>Agent: @backend-developer (backend_task_040)</subagent_task>
-<subagent_task>Agent: @backend-developer (backend_task_041)</subagent_task>
-<subagent_task>Agent: @backend-developer (backend_task_042)</subagent_task>
-<subagent_task>Agent: @backend-developer (backend_task_043)</subagent_task>
-<subagent_task>Agent: @backend-developer (backend_task_044)</subagent_task>
-<subagent_task>Agent: @backend-developer (backend_task_045)</subagent_task>
-<subagent_task>Agent: @backend-developer (backend_task_046)</subagent_task>
-
-✓ Batch 3 complete: 7/7 tasks
-
-✓ Wave 3 complete: 27/27 tasks (100% coverage)
+✓ Wave 3 complete: 27/27 tasks across 6 batches (100% coverage)
 
 [Now proceed to Wave 4]
 ```
 
 **FORBIDDEN - INCORRECT EXECUTION PATTERNS**:
-- ❌ "Creating tasks one by one" (creates serial execution, not parallel)
-- ❌ "Creating one subagent per batch" (only 1 task executes at a time)
+- ❌ "Creating ALL wave tasks at once" (should be batched by worker count)
+- ❌ "Creating tasks one by one" (should create batch_size tasks together)
+- ❌ "Creating one subagent per batch" (batch should have worker_count subagents)
+- ❌ "Processing next batch before current batch completes" (batches must be serial)
 - ❌ "Proceeding to next wave before current wave completes" (breaks dependencies)
-- ❌ "Skipping batches in a wave" (incomplete coverage)
-- ❌ Example of WRONG pattern:
+- ❌ "Skipping tasks in a wave" (incomplete coverage)
+- ❌ Example of WRONG pattern (creating all 27 at once):
+  ```
+  Wave 3: Creating ALL 27 subagents:
+  [27 <subagent_task> blocks]
+  [This ignores batch concept!]
+  ```
+- ❌ Example of WRONG pattern (one by one):
   ```
   <subagent_task>Agent: @backend-developer (task_020)</subagent_task>
-  [wait for completion]
-  <subagent_task>Agent: @backend-developer (task_021)</subagent_task>
-  [wait for completion]
-  [This is SERIAL, not parallel!]
+  [wait] <subagent_task>Agent: @backend-developer (task_021)</subagent_task>
+  [This is too slow!]
   ```
-- ❌ "Processing task 1... Processing task 2..." (串行执行)
-- ❌ "Let me start with task_020" then later "Now task_021" (one-by-one processing)
-- ✅ REQUIRED: Create ALL 10 `<subagent_task>` blocks in ONE response
-- ✅ REQUIRED: Example correct pattern shown above (all blocks together)
-- ✅ REQUIRED: Wait for batch to complete before next batch
-- ✅ REQUIRED: Wait for wave to complete before next wave
-- ✅ REQUIRED: 100% wave coverage across all batches
+- ✅ REQUIRED: Divide wave into batches of size = worker count
+- ✅ REQUIRED: Create batch_size `<subagent_task>` blocks in ONE response
+- ✅ REQUIRED: Wait for current batch to complete before next batch
+- ✅ REQUIRED: Process all batches until wave complete (100% coverage)
 
 **Verification Required**:
 1. For each wave:
    - Count tasks: `wave_task_count = tasks in wave [N]`
-   - Calculate batches: `num_batches = ceil(wave_task_count / 10)`
-   - Output: "Wave [N]: {wave_task_count} tasks, {num_batches} batches"
+   - Calculate batches: `num_batches = ceil(wave_task_count / workers)`
+   - Output: "Wave [N]: {wave_task_count} tasks, workers={workers}, {num_batches} batches"
 2. For each batch in wave:
-   - Count batch tasks: `batch_size = min(10, remaining_tasks)`
-   - Output: "Batch {i} of {num_batches} ({batch_size} tasks) - Creating ALL {batch_size} developer subagents SIMULTANEOUSLY:"
-   - **Create {batch_size} complete `<subagent_task>` blocks (not abbreviated) in ONE response**
+   - Calculate batch size: `batch_size = min(workers, remaining_tasks)`
+   - Output: "Batch {i}/{num_batches}: Creating {batch_size} developer subagents:"
+   - **Create {batch_size} complete `<subagent_task>` blocks in ONE response**
    - Each block must be complete with full task details
    - ALL {batch_size} blocks must be in the SAME response
-   - System automatically executes them in parallel (up to worker limit)
-   - Wait for ALL subagents in batch to complete
-   - Confirm: "✓ Batch {i} complete: {batch_size}/{batch_size} tasks"
+   - Wait for ALL subagents in current batch to complete
+   - Confirm: "✓ Batch {i}/{num_batches} complete: {batch_size}/{batch_size} tasks"
 3. After all batches in wave:
-   - Confirm: "✓ Wave [N] complete: {wave_task_count}/{wave_task_count} tasks (100% coverage)"
-   - Proceed to next wave
+   - Confirm: "✓ Wave [N] complete: {wave_task_count}/{wave_task_count} tasks across {num_batches} batches (100% coverage)"
+4. Proceed to next wave
 
 **For backend tasks:**
 ```
