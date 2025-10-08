@@ -414,76 +414,156 @@ Next command: /parallel-dev-fullstack 5
 
 ---
 
-#### 阶段4️⃣:全栈并行开发(Full-Stack Parallel TDD Development)
+#### 阶段4️⃣:全栈并行开发和集成(Full-Stack Parallel TDD Development & Integration)
+
+> **3阶段开发流程**: Level 3实现(组件/函数) → Level 2集成(页面/服务) → Level 1集成(模块)
 
 **步骤9:执行全栈并行 TDD 开发**
 ```
 /parallel-dev-fullstack 5
 ```
 
-**输出示例**：
+**输出示例 - 完整3阶段流程**：
 ```
 Starting full-stack parallel TDD development with 5 workers...
 
-=== Wave 1: Backend Utils + Shared Components ===
-Creating 5 developer subagents...
-✓ backend_012 (hash_password) - @backend-developer - COMPLETED
-✓ backend_015 (validate_email) - @backend-developer - COMPLETED
-✓ frontend_030 (Button) - @frontend-developer - COMPLETED
-✓ frontend_031 (Input) - @frontend-developer - COMPLETED
-✓ frontend_032 (Card) - @frontend-developer - COMPLETED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+阶段1: Level 3 实现 (组件/函数 - 叶子节点)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+=== Wave 1: Backend Utils + Shared Components (Level 3) ===
+Creating 5 @backend-developer and @frontend-developer subagents...
+✓ 2.3.1 (hash_password) - @backend-developer - COMPLETED
+✓ 2.3.2 (validate_email) - @backend-developer - COMPLETED
+✓ 3.5.1 (Button) - @frontend-developer - COMPLETED
+✓ 3.5.2 (Input) - @frontend-developer - COMPLETED
+✓ 3.5.3 (Card) - @frontend-developer - COMPLETED
 ... (15 tasks total)
 
-=== Wave 2: Backend Repositories ===
-Creating 5 developer subagents...
-✓ backend_011 (create_user_record) - @backend-developer - COMPLETED
-✓ backend_018 (get_user_by_email) - @backend-developer - COMPLETED
-✓ backend_024 (create_product) - @backend-developer - COMPLETED
+=== Wave 2: Backend Repositories (Level 3) ===
+Creating 5 @backend-developer subagents...
+✓ 1.1.1 (create_user_record) - @backend-developer - COMPLETED
+✓ 1.1.2 (get_user_by_email) - @backend-developer - COMPLETED
+✓ 2.1.1 (create_product) - @backend-developer - COMPLETED
 ... (18 tasks total)
 
-=== Wave 3: Backend Services ===
+=== Wave 3: Backend Services (Level 3) ===
 ... (22 tasks)
 
-=== Wave 4: Backend APIs ===
+=== Wave 4: Backend APIs (Level 3) ===
 ... (15 tasks)
 
-=== Wave 5: Frontend Basic Components ===
+=== Wave 5: Frontend Basic Components (Level 3) ===
 ... (8 tasks)
 
-=== Wave 6: Frontend API Components ===
+=== Wave 6: Frontend API Components (Level 3) ===
 ... (12 tasks)
 
-=== Wave 7: Frontend Pages ===
-... (7 tasks)
+✓ Phase 1 Complete: All 90 Level 3 tasks implemented (68 functions + 22 components)
 
-=== Wave 8: Integration Tests ===
-... (3 tasks)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+阶段2: Level 2 集成 (页面/服务 - 组装子节点)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+=== Wave 7: Backend Services Integration (Level 2) ===
+Creating 3 @backend-integrator subagents...
+✓ 1.1 (UserService) - @backend-integrator - INTEGRATED
+  - Assembled functions: 1.1.1, 1.1.2, 1.1.3, 1.1.4, 1.1.5
+  - Integration file: src/services/user_service.py
+  - Integration tests: tests/integration/test_user_service.py
+  - Test coverage: 85%
+✓ 1.2 (AuthService) - @backend-integrator - INTEGRATED
+  - Assembled functions: 1.2.1, 1.2.2, 1.2.3
+  - Integration file: src/services/auth_service.py
+  - Integration tests: tests/integration/test_auth_service.py
+  - Test coverage: 88%
+✓ 2.1 (ProductService) - @backend-integrator - INTEGRATED
+... (10 services total)
+
+=== Wave 8: Frontend Pages Integration (Level 2) ===
+Creating 3 @frontend-integrator subagents...
+✓ 1.1 (LoginPage) - @frontend-integrator - INTEGRATED
+  - Assembled components: 1.1.1, 1.1.2, 1.1.3
+  - Integration file: src/pages/LoginPage.tsx
+  - Integration tests: tests/integration/LoginPage.test.tsx
+  - Test coverage: 82%
+✓ 1.2 (RegisterPage) - @frontend-integrator - INTEGRATED
+  - Assembled components: 1.2.1, 1.2.2, 1.2.3, 1.2.4
+  - Integration file: src/pages/RegisterPage.tsx
+  - Integration tests: tests/integration/RegisterPage.test.tsx
+  - Test coverage: 80%
+✓ 2.1 (ProductListPage) - @frontend-integrator - INTEGRATED
+... (12 pages total)
+
+✓ Phase 2 Complete: All 22 Level 2 tasks integrated (10 services + 12 pages)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+阶段3: Level 1 集成 (模块 - 最终组装)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+=== Wave 9: Backend Modules Integration (Level 1) ===
+Creating 2 @backend-integrator subagents...
+✓ 1 (User Management Module) - @backend-integrator - INTEGRATED
+  - Assembled services: 1.1, 1.2
+  - Module entry: src/modules/user_module.py
+  - End-to-end tests: tests/e2e/test_user_flows.py
+  - Test coverage: 87%
+✓ 2 (Product Management Module) - @backend-integrator - INTEGRATED
+  - Assembled services: 2.1, 2.2
+  - Module entry: src/modules/product_module.py
+  - End-to-end tests: tests/e2e/test_product_flows.py
+  - Test coverage: 85%
+... (4 backend modules total)
+
+=== Wave 10: Frontend Modules Integration (Level 1) ===
+Creating 2 @frontend-integrator subagents...
+✓ 1 (Authentication Module) - @frontend-integrator - INTEGRATED
+  - Assembled pages: 1.1, 1.2, 1.3
+  - Module entry: src/modules/AuthModule.tsx
+  - End-to-end tests: tests/e2e/auth.test.tsx
+  - Test coverage: 83%
+✓ 2 (Product Display Module) - @frontend-integrator - INTEGRATED
+  - Assembled pages: 2.1, 2.2
+  - Module entry: src/modules/ProductModule.tsx
+  - End-to-end tests: tests/e2e/product.test.tsx
+  - Test coverage: 81%
+... (3 frontend modules total)
+
+✓ Phase 3 Complete: All 7 Level 1 modules integrated (4 backend + 3 frontend)
 
 ========================================
 Full-Stack Development Summary
 ========================================
 
-Backend Development:
-  Total functions: 68
-  ✓ Completed: 68
-  ✗ Failed: 0
+Level 3 (Implementation):
+  Backend functions: 68 ✓
+  Frontend components: 22 ✓
+  Total: 90 tasks completed
 
-Frontend Development:
-  Total components: 45
-  ✓ Completed: 45
-  ✗ Failed: 0
+Level 2 (Integration):
+  Backend services: 10 ✓ (assembled from 68 functions)
+  Frontend pages: 12 ✓ (assembled from 22 components)
+  Total: 22 tasks integrated
+
+Level 1 (Module Assembly):
+  Backend modules: 4 ✓ (assembled from 10 services)
+  Frontend modules: 3 ✓ (assembled from 12 pages)
+  Total: 7 modules ready for deployment
 
 Cross-Stack Integration:
   ✓ All API contracts verified
   ✓ All component dependencies satisfied
+  ✓ All integration tests passed
+  ✓ All E2E tests passed
 
 Test Coverage:
-  Backend: 87%
-  Frontend: 82%
+  Backend: 87% (unit + integration + E2E)
+  Frontend: 82% (unit + integration + E2E)
 
-Total Time: ~45 minutes
+Total Time: ~60 minutes (45min Level 3 + 10min Level 2 + 5min Level 1)
 
-🎉 Full-stack development completed successfully!
+🎉 Full-stack development and integration completed successfully!
+🚀 All modules ready for deployment!
 ```
 
 ---
@@ -557,8 +637,13 @@ System: ✓ Generated 8 execution waves
 ✓ Cross-stack dependencies: 18 API calls
 Next: /parallel-dev-fullstack 5
 
-# 第5步：并行开发
+# 第5步：并行开发(包含3阶段集成)
 User: /parallel-dev-fullstack 5
+
+# 系统自动执行:
+# - 阶段1: Level 3实现(所有组件和函数)
+# - 阶段2: Level 2集成(页面和服务)
+# - 阶段3: Level 1集成(模块)
 
 System: [45 minutes later]
 ✓ 93 tasks completed

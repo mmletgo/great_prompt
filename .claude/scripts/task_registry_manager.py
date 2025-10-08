@@ -687,6 +687,66 @@ class TaskRegistryManager:
 
         return ready
 
+    def get_integration_ready_tasks(
+        self, level: int, category: Optional[str] = None
+    ) -> List[Dict]:
+        """Get tasks at specified level that are ready for integration.
+
+        A task is ready for integration when ALL its child subtasks are completed.
+
+        Args:
+            level: Level to check (1 or 2)
+            category: Optional category filter ('frontend' or 'backend')
+
+        Returns:
+            List of tasks ready for integration (all children completed)
+        """
+        if level not in [1, 2]:
+            raise ValueError("Integration only applies to Level 1 and 2 tasks")
+
+        tasks_at_level = self.get_tasks_by_level(level, category)
+        ready_for_integration = []
+
+        for task in tasks_at_level:
+            # Skip if already completed or in progress
+            if task.get("status") in ["completed", "in_progress"]:
+                continue
+
+            # Check if all subtasks are completed
+            subtasks = task.get("subtasks", [])
+            if not subtasks:
+                # No subtasks means not decomposed yet
+                continue
+
+            all_children_complete = self._all_children_completed(task)
+
+            if all_children_complete:
+                ready_for_integration.append(task)
+
+        return ready_for_integration
+
+    def _all_children_completed(self, task: Dict) -> bool:
+        """Recursively check if all descendants are completed.
+
+        Args:
+            task: Task to check
+
+        Returns:
+            True if all descendants completed, False otherwise
+        """
+        subtasks = task.get("subtasks", [])
+
+        if not subtasks:
+            # Leaf node - check its own status
+            return task.get("status") == "completed"
+
+        # Check all children recursively
+        for child in subtasks:
+            if not self._all_children_completed(child):
+                return False
+
+        return True
+
     def set_execution_order(self, waves: List[Dict]):
         """Set the execution order (waves) - LEGACY METHOD.
 
@@ -850,6 +910,10 @@ def main():
             result = manager.get_blocked_tasks()
             print(json.dumps(result, indent=2, ensure_ascii=False))
 
+        elif args.command == "get_integration_ready_tasks" and args.level:
+            result = manager.get_integration_ready_tasks(args.level, args.category)
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+
         elif hasattr(manager, args.command):
             method = getattr(manager, args.command)
             result = method()
@@ -878,6 +942,10 @@ def main():
             print("  get_tasks_by_level --level N [--category ...]", file=sys.stderr)
             print("  get_ready_tasks", file=sys.stderr)
             print("  get_blocked_tasks", file=sys.stderr)
+            print(
+                "  get_integration_ready_tasks --level N [--category ...]",
+                file=sys.stderr,
+            )
             sys.exit(1)
 
     except Exception as e:

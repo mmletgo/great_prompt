@@ -81,6 +81,103 @@ class ProjectManager:
             "updated": ["task_registry.json", "state.json"],
         }
 
+    def complete_integration_task_full(
+        self,
+        task_id: str,
+        integration_file: str = None,
+        test_file: str = None,
+        test_coverage: int = None,
+        duration_minutes: float = None,
+    ):
+        """Complete an integration task (Level 1 or 2) with full updates.
+
+        Integration tasks assemble their completed children into cohesive units.
+        Examples:
+        - Level 2 Frontend: Page integration (assemble components)
+        - Level 2 Backend: Service integration (assemble functions)
+        - Level 1 Frontend: Module integration (assemble pages)
+        - Level 1 Backend: Module integration (assemble services)
+
+        Args:
+            task_id: Task identifier (e.g., "1.1" for page, "1" for module)
+            integration_file: Path to integration file (e.g., page container, service class)
+            test_file: Path to integration test file
+            test_coverage: Integration test coverage percentage
+            duration_minutes: Task execution duration
+        """
+        # Verify task exists and get its level
+        task = self.tasks.find_task(task_id)
+        if not task:
+            raise ValueError(f"Task {task_id} not found")
+
+        level = task.get("level")
+        if level not in [1, 2]:
+            raise ValueError(
+                f"Task {task_id} is Level {level}. Integration only applies to Level 1 or 2."
+            )
+
+        # Verify all children are completed
+        if not self.tasks._all_children_completed(task):
+            incomplete = self._get_incomplete_children(task)
+            raise ValueError(
+                f"Cannot complete integration task {task_id}: "
+                f"Incomplete children: {incomplete}"
+            )
+
+        # Update task registry
+        self.tasks.update_task_status(
+            task_id=task_id,
+            status="completed",
+            implementation_file=integration_file,
+            test_file=test_file,
+            test_coverage=test_coverage,
+            duration_minutes=duration_minutes,
+        )
+
+        # Update state
+        self.state.complete_task(task_id)
+
+        return {
+            "task_id": task_id,
+            "level": level,
+            "type": "integration",
+            "status": "completed",
+            "updated": ["task_registry.json", "state.json"],
+        }
+
+    def _get_incomplete_children(self, task: Dict) -> List[str]:
+        """Get list of incomplete child task IDs.
+
+        Args:
+            task: Parent task
+
+        Returns:
+            List of incomplete child task IDs
+        """
+        incomplete = []
+
+        for child in task.get("subtasks", []):
+            if child.get("status") != "completed":
+                incomplete.append(child["id"])
+            # Recursively check grandchildren
+            incomplete.extend(self._get_incomplete_children(child))
+
+        return incomplete
+
+    def get_integration_ready_tasks(
+        self, level: int, category: Optional[str] = None
+    ) -> List[Dict]:
+        """Get tasks ready for integration at specified level.
+
+        Args:
+            level: Level to check (1 or 2)
+            category: Optional category filter ('frontend' or 'backend')
+
+        Returns:
+            List of tasks ready for integration (all children completed)
+        """
+        return self.tasks.get_integration_ready_tasks(level, category)
+
     def complete_batch(
         self,
         wave_number: int,

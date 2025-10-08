@@ -16,22 +16,32 @@ Check that both frontend and backend decomposition are complete:
 
 ## Steps
 
-### 1. Collect All Tasks
+### 1. Collect All Tasks (All Levels)
 From task_registry.json (tree structure):
-- All frontend component-level tasks (Level 3, type="component")
-- All backend function-level tasks (Level 3, type="function")
+- **Level 3 tasks**: Leaf nodes (components/functions) - Direct implementation
+- **Level 2 tasks**: Integration tasks (pages/services) - Assemble Level 3 children
+- **Level 1 tasks**: Root tasks (modules) - Assemble Level 2 children
 
 **Python example**:
 ```python
 task_mgr = TaskRegistryManager()
 
-# Get all Level 3 tasks (leaf tasks ready for development)
+# Get all Level 3 tasks (leaf tasks - direct implementation)
 frontend_components = task_mgr.get_tasks_by_level(3, category="frontend")
 backend_functions = task_mgr.get_tasks_by_level(3, category="backend")
 
-print(f"Frontend components: {len(frontend_components)}")
-print(f"Backend functions: {len(backend_functions)}")
-print(f"Total tasks: {len(frontend_components) + len(backend_functions)}")
+# Get all Level 2 tasks (integration tasks - assemble children)
+frontend_pages = task_mgr.get_tasks_by_level(2, category="frontend")
+backend_services = task_mgr.get_tasks_by_level(2, category="backend")
+
+# Get all Level 1 tasks (root tasks - final assembly)
+frontend_modules = task_mgr.get_tasks_by_level(1, category="frontend")
+backend_modules = task_mgr.get_tasks_by_level(1, category="backend")
+
+print(f"Level 3: {len(frontend_components)} components + {len(backend_functions)} functions")
+print(f"Level 2: {len(frontend_pages)} pages + {len(backend_services)} services")
+print(f"Level 1: {len(frontend_modules)} + {len(backend_modules)} modules")
+print(f"Total tasks: {len(frontend_components) + len(backend_functions) + len(frontend_pages) + len(backend_services) + len(frontend_modules) + len(backend_modules)}")
 ```
 
 ### 2. Invoke Fullstack Dependency Analyzer
@@ -63,10 +73,21 @@ Task:
    - Identify backend functions required by frontend
 
 4. Build Cross-Stack Dependency Graph:
+   
+   **Horizontal Dependencies (same level)**:
    - Backend functions must complete before frontend components that use them
    - Shared components must complete before page components
    - Authentication backend must complete before protected frontend pages
    - **Use dot notation IDs** for all dependencies (e.g., "1.1.2" depends on "2.1.3")
+   
+   **Vertical Dependencies (bottom-up integration)**:
+   - **Level 2 depends on Level 3**: Pages/Services depend on ALL their child components/functions
+     * Frontend: Page "1.1" depends on children ["1.1.1", "1.1.2", "1.1.3"]
+     * Backend: Service "2.1" depends on children ["2.1.1", "2.1.2", "2.1.3"]
+   - **Level 1 depends on Level 2**: Modules depend on ALL their child pages/services
+     * Frontend: Module "1" depends on children ["1.1", "1.2", "1.3"]
+     * Backend: Module "2" depends on children ["2.1", "2.2", "2.3"]
+   - Integration tasks (Level 1 & 2) assemble their completed children into cohesive units
 
 5. Create Execution Waves with Balanced Task Distribution:
    
@@ -100,28 +121,78 @@ Output format:
   "frontend_dependencies": {...},
   "backend_dependencies": {...},
   "cross_stack_dependencies": {
-    "1.2.3": ["2.1.1", "2.1.2"]  // Frontend task depends on backend tasks (dot notation IDs)
+    "1.2.3": ["2.1.1", "2.1.2"],  // Frontend component depends on backend functions
+    "1.1": ["1.1.1", "1.1.2", "1.1.3"],  // Level 2 page depends on Level 3 components
+    "1": ["1.1", "1.2", "1.3"]  // Level 1 module depends on Level 2 pages
   },
   "execution_order": [
+    // Phase 1: Level 3 Implementation (leaf nodes)
     {
       "wave": 1,
+      "level": 3,
       "category": "backend",
-      "tasks": ["2.1.1", "2.1.2", "2.2.1"]  // Dot notation IDs
+      "tasks": ["2.1.1", "2.1.2", "2.2.1"],  // Backend functions
+      "description": "Backend utility functions"
     },
     {
       "wave": 2,
+      "level": 3,
       "category": "backend",
-      "tasks": ["2.3.1"]
+      "tasks": ["2.3.1", "2.3.2"],  // Backend API endpoints
+      "description": "Backend API layer"
     },
     {
       "wave": 3,
+      "level": 3,
       "category": "frontend",
-      "tasks": ["1.1.1"]
+      "tasks": ["1.1.1", "1.1.2", "1.1.3"],  // Frontend components
+      "description": "Frontend components"
     },
+    
+    // Phase 2: Level 2 Integration (assemble children)
     {
       "wave": 4,
-      "category": "mixed",
-      "tasks": ["1.2.1", "2.4.1"]
+      "level": 2,
+      "category": "backend",
+      "tasks": ["2.1", "2.2"],  // Backend services (integrate functions)
+      "description": "Backend service integration",
+      "children": {
+        "2.1": ["2.1.1", "2.1.2"],
+        "2.2": ["2.2.1"]
+      }
+    },
+    {
+      "wave": 5,
+      "level": 2,
+      "category": "frontend",
+      "tasks": ["1.1", "1.2"],  // Frontend pages (integrate components)
+      "description": "Frontend page integration",
+      "children": {
+        "1.1": ["1.1.1", "1.1.2", "1.1.3"],
+        "1.2": ["1.2.1", "1.2.2"]
+      }
+    },
+    
+    // Phase 3: Level 1 Integration (final assembly)
+    {
+      "wave": 6,
+      "level": 1,
+      "category": "backend",
+      "tasks": ["2"],  // Backend module (integrate services)
+      "description": "Backend module integration",
+      "children": {
+        "2": ["2.1", "2.2", "2.3"]
+      }
+    },
+    {
+      "wave": 7,
+      "level": 1,
+      "category": "frontend",
+      "tasks": ["1"],  // Frontend module (integrate pages)
+      "description": "Frontend module integration",
+      "children": {
+        "1": ["1.1", "1.2", "1.3"]
+      }
     }
   ]
 }
@@ -188,13 +259,28 @@ Dependency Analysis:
 ✓ Backend internal dependencies: [Y]
 ✓ Cross-stack dependencies: [Z]
 
-Execution Plan (Balanced Distribution):
-  Wave 1: 8 tasks (backend utils, validators)
-  Wave 2: 6 tasks (backend repositories)
-  Wave 3: 9 tasks (backend API endpoints)
-  Wave 4: 7 tasks (shared frontend components)
-  Wave 5: 10 tasks (frontend components with API)
-  Wave 6: 7 tasks (frontend page containers)
+Execution Plan (3-Phase Bottom-Up Integration):
+  
+  === Phase 1: Level 3 Implementation (Leaf Nodes) ===
+  Wave 1: 8 tasks (Level 3 - backend utils, validators)
+  Wave 2: 6 tasks (Level 3 - backend repositories)
+  Wave 3: 9 tasks (Level 3 - backend API endpoints)
+  Wave 4: 7 tasks (Level 3 - shared frontend components)
+  Wave 5: 10 tasks (Level 3 - frontend components with API)
+  
+  === Phase 2: Level 2 Integration (Assemble Children) ===
+  Wave 6: 5 tasks (Level 2 - backend services integration)
+    - Service 2.1: Integrate functions [2.1.1, 2.1.2, 2.1.3]
+    - Service 2.2: Integrate functions [2.2.1, 2.2.2]
+  Wave 7: 4 tasks (Level 2 - frontend pages integration)
+    - Page 1.1: Integrate components [1.1.1, 1.1.2, 1.1.3]
+    - Page 1.2: Integrate components [1.2.1, 1.2.2]
+  
+  === Phase 3: Level 1 Integration (Final Assembly) ===
+  Wave 8: 2 tasks (Level 1 - backend modules)
+    - Module 2: Integrate services [2.1, 2.2, 2.3]
+  Wave 9: 2 tasks (Level 1 - frontend modules)
+    - Module 1: Integrate pages [1.1, 1.2, 1.3]
   ...
   
 Total Waves: [W]

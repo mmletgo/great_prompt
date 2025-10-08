@@ -33,7 +33,10 @@
    └─ 构建跨栈依赖图，生成执行波次
 
 8. /parallel-dev-fullstack [workers]
-   └─ 并行执行全栈TDD开发（默认 5 个 worker）
+   └─ 并行执行全棈TDD开发（默认 5 个 worker）
+      阶段1: Level 3 实现 (Wave 1-6 - 组件/函数)
+      阶段2: Level 2 集成 (Wave 7-8 - 页面/服务)
+      阶段3: Level 1 集成 (Wave 9-10 - 模块)
 
 # 监控
 9. /status
@@ -48,9 +51,10 @@
 ### 任务状态
 - `pending` - 待拆分
 - `decomposed` - 已拆分
-- `ready` - 函数级，待开发
+- `ready` - 函数级,待开发
 - `in_progress` - 开发中
-- `completed` - 已完成
+- `completed` - Level 3已完成
+- `integrated` - Level 2/1集成完成
 - `failed` - 失败
 
 ### 阶段状态
@@ -80,6 +84,9 @@ designs/                    # 设计产物（系统生成）
 .claude_tasks/              # 任务管理(系统生成)
 ├── state.json              # 全局状态
 ├── task_registry.json      # 任务清单(树状结构) + 跨栈依赖图
+│                           # - Level 1: 模块 (1, 2, 3...)
+│                           # - Level 2: 页面/服务 (1.1, 1.2...)
+│                           # - Level 3: 组件/函数 (1.1.1, 1.1.2...)
 └── contexts/               # 每个任务的详细上下文
     ├── 1_1_1_context.md    # 前端任务 1.1.1
     ├── 2_1_1_context.md    # 后端任务 2.1.1
@@ -220,8 +227,10 @@ decomposition_phase.status = completed
 **开发阶段:**
 | Agent | 职责 | 调用时机 |
 |-------|------|----------|
-| @frontend-developer | React/Vue组件TDD | `/parallel-dev-fullstack` |
-| @backend-developer | 后端函数TDD | `/parallel-dev-fullstack` |
+| @frontend-developer | React/Vue组件TDD (Level 3) | `/parallel-dev-fullstack` Wave 1-6 |
+| @backend-developer | 后端函数TDD (Level 3) | `/parallel-dev-fullstack` Wave 1-6 |
+| @frontend-integrator | 前端页面/模块集成 (Level 2 & 1) | `/parallel-dev-fullstack` Wave 7-10 |
+| @backend-integrator | 后端服务/模块集成 (Level 2 & 1) | `/parallel-dev-fullstack` Wave 7-10 |
 
 ## 💡 最佳实践速记
 

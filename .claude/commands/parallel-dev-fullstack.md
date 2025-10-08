@@ -76,11 +76,18 @@ If starting fresh (state.json doesn't exist or development_phase.status == "not_
 
 For each wave in execution_order:
 
-#### 2.1 Identify Wave Category
-Determine task types in current wave:
-- Backend tasks: Use @backend-developer
-- Frontend tasks: Use @frontend-developer
-- Mixed wave: Use appropriate developer for each task type
+#### 2.1 Identify Wave Category and Level
+Determine task level and types in current wave:
+- **Level 3 tasks (Leaf nodes)**: Direct implementation
+  - Backend functions: Use @backend-developer
+  - Frontend components: Use @frontend-developer
+- **Level 2 tasks (Integration)**: Assemble children into cohesive units
+  - Backend services: Use @backend-integrator (assemble functions)
+  - Frontend pages: Use @frontend-integrator (assemble components)
+- **Level 1 tasks (Final assembly)**: Integrate modules
+  - Backend modules: Use @backend-integrator
+  - Frontend modules: Use @frontend-integrator
+- Mixed wave: Use appropriate developer/integrator for each task
 
 #### 2.2 Create Developer Subagents for Wave
 
@@ -451,7 +458,54 @@ else:
 
 5. Proceed to next wave
 
-**For backend tasks:**
+**State Management for Integration Tasks (Level 2 & 1)**:
+
+For Level 2 and Level 1 integration tasks, use the specialized integration API:
+
+```python
+from utils import ProjectManager
+
+manager = ProjectManager()
+
+# For Level 2 integration (page/service)
+manager.complete_integration_task_full(
+    task_id="1.1",  # Page or Service ID (Level 2)
+    integration_file="src/pages/LoginPage.tsx",
+    test_file="tests/integration/LoginPage.test.tsx",
+    test_coverage=85.0,
+    duration_minutes=15.0
+)
+
+# For Level 1 integration (module)
+manager.complete_integration_task_full(
+    task_id="1",  # Module ID (Level 1)
+    integration_file="src/modules/AuthModule.tsx",
+    test_file="tests/e2e/auth.test.tsx",
+    test_coverage=87.0,
+    duration_minutes=20.0
+)
+```
+
+**Validation**: The script automatically verifies:
+- ✅ Task exists and is Level 1 or 2
+- ✅ All child tasks are completed
+- ✅ Updates both task_registry.json and state.json
+- ❌ Raises error if any children incomplete
+
+**Check Integration Readiness**:
+```python
+# Check which Level 2 tasks are ready for integration
+ready_pages = manager.get_integration_ready_tasks(level=2, category="frontend")
+ready_services = manager.get_integration_ready_tasks(level=2, category="backend")
+
+# Check which Level 1 tasks are ready for integration
+ready_modules_fe = manager.get_integration_ready_tasks(level=1, category="frontend")
+ready_modules_be = manager.get_integration_ready_tasks(level=1, category="backend")
+```
+
+---
+
+**For backend Level 3 tasks (functions):**
 ```
 <subagent_task>
 Agent: @backend-developer
@@ -502,14 +556,165 @@ Success criteria:
 </subagent_task>
 ```
 
-**For frontend tasks:**
+**For backend Level 2 tasks (service integration):**
+```
+<subagent_task>
+Agent: @backend-integrator
+Input:
+- Task ID: 2.1  # Dot notation ID (Level 2)
+- Level: 2 (Service integration - assemble functions)
+- Parent module: Module 2 (Level 1)
+- Child functions: ["2.1.1", "2.1.2", "2.1.3", "2.1.4"]  # All completed
+- Service name: AuthService
+- Architecture: docs/fullstack-architecture.md
+- Backend spec: docs/back-end-spec.md
+
+Task:
+Integrate all child functions into a cohesive service:
+
+1. **Function Assembly**:
+   - Import all completed child functions
+   - Verify all functions are implemented (status="completed")
+   - Check function signatures match service requirements
+   - Validate function dependencies
+
+2. **Service Layer Structure**:
+   - Create service class/module (e.g., AuthService)
+   - Organize functions into logical groups
+   - Implement service-level state management
+   - Add service initialization and cleanup
+
+3. **Function Orchestration**:
+   - Implement workflows that use multiple functions
+   - Add transaction management (if database operations)
+   - Handle cross-function error propagation
+   - Implement service-level caching (if needed)
+
+4. **Service-Level Features**:
+   - Add service-level middleware
+   - Implement service-level logging
+   - Add service health checks
+   - Configure service-level rate limiting
+   - Generate service API documentation
+
+5. **Integration Testing**:
+   - Write integration tests for service
+   - Test function interactions within service
+   - Test service-level workflows
+   - Test error handling and recovery
+   - Verify performance meets requirements
+
+Output format:
+- Service file: src/services/[service-name]/index.ts
+- Integration tests: src/services/[service-name]/integration.test.ts
+- Service documentation: docs/services/[service-name].md
+- API documentation: OpenAPI spec updated
+
+Success criteria:
+✓ All child functions successfully integrated
+✓ Service workflows working correctly
+✓ Service-level error handling implemented
+✓ Integration tests pass (>80% coverage)
+✓ API documentation complete
+✓ Service ready for module integration
+
+**After completion, update state with integration API**:
+```python
+manager.complete_integration_task_full(
+    task_id="2.1",
+    integration_file="src/services/AuthService/index.ts",
+    test_file="src/services/AuthService/integration.test.ts",
+    test_coverage=88.0,
+    duration_minutes=18.0
+)
+```
+</subagent_task>
+```
+
+**For backend Level 1 tasks (module integration):**
+```
+<subagent_task>
+Agent: @backend-integrator
+Input:
+- Task ID: 2  # Dot notation ID (Level 1)
+- Level: 1 (Module integration - assemble services)
+- Child services: ["2.1", "2.2", "2.3"]  # All completed
+- Module name: User Management Module
+- Architecture: docs/fullstack-architecture.md
+- Backend spec: docs/back-end-spec.md
+
+Task:
+Integrate all child services into a cohesive backend module:
+
+1. **Service Assembly**:
+   - Verify all child services are completed
+   - Check service APIs are compatible
+   - Validate inter-service dependencies
+   - Ensure database schema is complete
+
+2. **Module Structure**:
+   - Create module entry point
+   - Configure module-level routing
+   - Set up module-level middleware
+   - Add module initialization logic
+
+3. **Service Orchestration**:
+   - Implement cross-service workflows
+   - Add distributed transaction management
+   - Handle cross-service error propagation
+   - Implement module-level caching strategy
+
+4. **Module-Level Features**:
+   - Add module-level authentication
+   - Configure module-level authorization
+   - Set up module logging and monitoring
+   - Add module health check endpoints
+   - Generate complete API documentation
+
+5. **System Integration Testing**:
+   - Write system integration tests
+   - Test complete workflows across services
+   - Test module as cohesive unit
+   - Verify module integration with app
+   - Performance testing under load
+
+Output format:
+- Module index: src/modules/[module-name]/index.ts
+- Module config: src/modules/[module-name]/config.ts
+- System tests: src/modules/[module-name]/system.test.ts
+- Module documentation: docs/modules/[module-name].md
+- Complete API spec: openapi/[module-name].yaml
+
+Success criteria:
+✓ All child services successfully integrated
+✓ Cross-service workflows working
+✓ Module-level features implemented
+✓ System integration tests pass
+✓ Complete API documentation
+✓ Module ready for deployment
+
+**After completion, update state with integration API**:
+```python
+manager.complete_integration_task_full(
+    task_id="2",
+    integration_file="src/modules/UserManagement/index.ts",
+    test_file="src/modules/UserManagement/system.test.ts",
+    test_coverage=85.0,
+    duration_minutes=25.0
+)
+```
+</subagent_task>
+```
+
+**For frontend Level 3 tasks (components):**
 ```
 <subagent_task>
 Agent: @frontend-developer
 Input:
-- Task ID: 1.2.3  # Dot notation ID
+- Task ID: 1.2.3  # Dot notation ID (Level 3)
+- Level: 3 (Component implementation)
 - Context file: .claude_tasks/contexts/1_2_3_context.md
-- Task type: [Page/Component]
+- Task type: Component
 - Design reference: designs/wireframes/[page].md
 - Dependencies: [list of completed dependency task IDs in dot notation]
 - UX spec: docs/front-end-spec.md
@@ -557,6 +762,153 @@ Success criteria:
 ✓ Proper state management
 ✓ Accessibility compliant
 ✓ Responsive design
+</subagent_task>
+```
+
+**For frontend Level 2 tasks (page integration):**
+```
+<subagent_task>
+Agent: @frontend-integrator
+Input:
+- Task ID: 1.1  # Dot notation ID (Level 2)
+- Level: 2 (Page integration - assemble components)
+- Parent task: Module 1 (Level 1)
+- Child components: ["1.1.1", "1.1.2", "1.1.3"]  # All completed
+- Design reference: designs/wireframes/[page-name].md
+- Context file: .claude_tasks/contexts/1_1_context.md (if exists)
+- UX spec: docs/front-end-spec.md
+
+Task:
+Integrate all child components into a cohesive page:
+
+1. **Component Assembly**:
+   - Import all completed child components
+   - Verify all components are implemented (status="completed")
+   - Check component APIs match integration requirements
+   - Assemble components according to wireframe layout
+
+2. **Page Structure**:
+   - Create page container component (e.g., LoginPage.tsx)
+   - Layout child components (header, form, footer)
+   - Implement page-level state management
+   - Add routing configuration
+   - Handle page transitions and navigation
+
+3. **Data Flow Integration**:
+   - Connect components to shared state (Redux/Context/etc.)
+   - Implement data passing between components (props/events)
+   - Add API integration at page level (if needed)
+   - Handle loading/error states for entire page
+
+4. **Page-Level Features**:
+   - Add page-level error boundaries
+   - Implement page-level validation
+   - Add analytics tracking
+   - Configure SEO metadata (title, description)
+
+5. **Integration Testing**:
+   - Write integration tests for page
+   - Test component interactions
+   - Test page-level workflows (e.g., login flow)
+   - Test routing and navigation
+   - Verify against wireframe design
+
+Output format:
+- Page file: src/pages/[page-name]/index.tsx
+- Integration test: src/pages/[page-name]/integration.test.tsx
+- Route config: updated routing file
+- Test coverage: page integration coverage %
+
+Success criteria:
+✓ All child components successfully integrated
+✓ Page matches wireframe layout exactly
+✓ All component interactions working
+✓ Page-level workflows tested
+✓ Routing configured correctly
+✓ Integration tests pass (>80% coverage)
+
+**After completion, update state with integration API**:
+```python
+manager.complete_integration_task_full(
+    task_id="1.1",
+    integration_file="src/pages/LoginPage/index.tsx",
+    test_file="src/pages/LoginPage/integration.test.tsx",
+    test_coverage=82.0,
+    duration_minutes=16.0
+)
+```
+</subagent_task>
+```
+
+**For frontend Level 1 tasks (module integration):**
+```
+<subagent_task>
+Agent: @frontend-integrator
+Input:
+- Task ID: 1  # Dot notation ID (Level 1)
+- Level: 1 (Module integration - assemble pages)
+- Child pages: ["1.1", "1.2", "1.3"]  # All completed
+- Module name: Authentication Module
+- Design reference: designs/user-flows.md
+- Architecture: docs/fullstack-architecture.md
+
+Task:
+Integrate all child pages into a cohesive module:
+
+1. **Page Assembly**:
+   - Verify all child pages are completed
+   - Check page routing is configured
+   - Validate page-to-page navigation
+   - Ensure consistent design across pages
+
+2. **Module Structure**:
+   - Create module index/entry point
+   - Configure module-level routing
+   - Set up module-level state management
+   - Add module-level guards (auth, permissions)
+
+3. **User Flow Integration**:
+   - Implement complete user flows (from user-flows.md)
+   - Test cross-page workflows
+   - Add flow-level error handling
+   - Implement navigation between pages
+
+4. **Module-Level Features**:
+   - Add module-level layout (if shared)
+   - Configure module-level API client
+   - Set up module-level error boundaries
+   - Add module analytics tracking
+
+5. **End-to-End Testing**:
+   - Write E2E tests for user flows
+   - Test complete workflows across pages
+   - Verify module behaves as cohesive unit
+   - Test module integration with app
+
+Output format:
+- Module index: src/modules/[module-name]/index.tsx
+- Module config: src/modules/[module-name]/config.ts
+- E2E tests: src/modules/[module-name]/e2e.test.tsx
+- Module documentation: Updated README
+
+Success criteria:
+✓ All child pages successfully integrated
+✓ Complete user flows working end-to-end
+✓ Module routing configured correctly
+✓ Cross-page navigation working
+✓ E2E tests pass for all flows
+✓ Module ready for app integration
+
+**After completion, update state with integration API**:
+```python
+manager.complete_integration_task_full(
+    task_id="1",
+    integration_file="src/modules/AuthModule/index.tsx",
+    test_file="src/modules/AuthModule/e2e.test.tsx",
+    test_coverage=87.0,
+    duration_minutes=22.0
+)
+```
 </subagent_task>
 ```
 

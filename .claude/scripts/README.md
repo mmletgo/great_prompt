@@ -79,7 +79,9 @@ pending = manager.get_tasks_by_status("pending")
 High-level utility functions combining both managers.
 
 **Key Operations:**
-- `complete_task_full()` - Complete task with updates to both files
+- `complete_task_full()` - Complete Level 3 task (component/function)
+- `complete_integration_task_full()` - Complete Level 2/1 integration task (page/service/module)
+- `get_integration_ready_tasks()` - Get tasks ready for integration (all children completed)
 - `complete_wave_full()` - Complete wave with validation
 - `get_next_batch_tasks()` - Get next batch of pending tasks
 - `check_resume_status()` - Check if development can resume
@@ -119,15 +121,15 @@ python utils.py dashboard /path/to/workspace
 
 ## 🎯 Common Workflows
 
-### Workflow 1: Complete a Development Task
+### Workflow 1: Complete a Level 3 Development Task (Component/Function)
 ```python
 from utils import ProjectManager
 
 manager = ProjectManager()
 
-# When task is completed
+# When Level 3 task (component or function) is completed
 manager.complete_task_full(
-    task_id="FE_auth_LoginForm",
+    task_id="1.1.1",  # Dot notation (e.g., LoginForm component)
     implementation_file="src/components/auth/LoginForm.tsx",
     test_file="src/components/auth/LoginForm.test.tsx",
     test_coverage=95,
@@ -135,7 +137,47 @@ manager.complete_task_full(
 )
 ```
 
-### Workflow 2: Complete a Batch
+### Workflow 2: Complete a Level 2 Integration Task (Page/Service)
+```python
+from utils import ProjectManager
+
+manager = ProjectManager()
+
+# First, verify all child tasks are completed
+integration_ready = manager.get_integration_ready_tasks(level=2, category="frontend")
+
+if "1.1" in [t["id"] for t in integration_ready]:
+    # Page "1.1" is ready (all components completed)
+    manager.complete_integration_task_full(
+        task_id="1.1",  # LoginPage
+        integration_file="src/pages/auth/LoginPage.tsx",
+        test_file="src/pages/auth/LoginPage.integration.test.tsx",
+        test_coverage=88,
+        duration_minutes=25.0
+    )
+```
+
+### Workflow 3: Complete a Level 1 Integration Task (Module)
+```python
+from utils import ProjectManager
+
+manager = ProjectManager()
+
+# Verify all child pages/services are completed
+integration_ready = manager.get_integration_ready_tasks(level=1, category="backend")
+
+if "2" in [t["id"] for t in integration_ready]:
+    # Module "2" is ready (all services completed)
+    manager.complete_integration_task_full(
+        task_id="2",  # User Management Module
+        integration_file="src/modules/user-management/index.ts",
+        test_file="src/modules/user-management/system.test.ts",
+        test_coverage=85,
+        duration_minutes=45.0
+    )
+```
+
+### Workflow 4: Complete a Batch
 ```python
 from utils import ProjectManager
 
@@ -151,7 +193,7 @@ manager.complete_batch(
 )
 ```
 
-### Workflow 3: Complete a Wave
+### Workflow 5: Complete a Wave
 ```python
 from utils import ProjectManager
 
@@ -167,7 +209,7 @@ else:
     print(f"Incomplete tasks: {result['incomplete_tasks']}")
 ```
 
-### Workflow 4: Resume Development
+### Workflow 6: Resume Development
 ```python
 from utils import ProjectManager
 
