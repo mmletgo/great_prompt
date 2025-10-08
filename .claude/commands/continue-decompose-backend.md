@@ -53,7 +53,7 @@ else:
 
 #### If task.type == "function":
 - Mark as "ready"
-- **Immediately invoke ContextGenerator** (see step 5)
+- Note: Context generation will be handled by `/generate-backend-contexts` command later
 
 #### If task.type == "module" (Level 1):
 - **Decompose to Service level (Level 2)**
@@ -104,8 +104,6 @@ function_ids = task_mgr.add_subtasks_batch("1.1", [
     {"title": "verify_token", "type": "function", "description": "JWT verification utility"}
 ])  # Returns ["1.1.1", "1.1.2", "1.1.3", "1.1.4"]
 ```
-
-**For each new function task, invoke ContextGenerator** (see step 5)
 
 ### 3. Invoke BackendDecomposer Subagents (Parallel)
 
@@ -324,81 +322,7 @@ Example merged result:
 #### 5.4 Temporary File Cleanup Responsibility
 **The deletion of temporary files (.claude_tasks/backend_decomposition_temp/backend_task_*.json) MUST be performed by you only after confirming that all tasks have been successfully merged into task_registry.json. The Python integration script MUST NOT delete temporary files directly.**
 
-### 6. Invoke Context Generator for Function Tasks (Parallel)
-
-**After step 5 integration completes**, invoke context generators.
-
-**Trigger condition**: For each task where `level == 3` AND `type == "function"`
-
-**This includes**:
-- Existing function tasks (already at level 3)
-- Newly decomposed function tasks (just created in step 3-4)
-
-**CRITICAL - BATCHED PARALLEL PROCESSING (NO SKIPPING)**:
-- You MUST create ContextGenerator subagents for EVERY SINGLE function task in this batch
-- Process in sub-batches of maximum 10 subagents at a time for manageability
-- Count total function tasks FIRST, calculate number of sub-batches needed
-- Process ALL sub-batches - DO NOT stop after first sub-batch
-- Each sub-batch must complete before starting next sub-batch
-
-**Batching Rules**:
-1. Count total: `function_count = tasks where level==3 AND type=="function"`
-2. Calculate batches: `num_batches = ceil(function_count / 10)`
-3. **MANDATORY PARALLEL EXECUTION WITHIN EACH SUB-BATCH**:
-   - Within each sub-batch, you MUST create ALL subagents AT THE SAME TIME
-   - DO NOT process sub-batch items one by one
-   - DO NOT wait for one subagent to finish before starting the next
-   - Create 10 `<subagent_task>` blocks simultaneously in one response
-   - Example: For sub-batch of 10, output 10 subagent blocks together, not sequentially
-4. Track progress: "Processing batch X of Y (10 functions)..."
-5. Verify completion: After ALL batches, confirm total = function_count
-
-**Example - 32 function tasks**:
-```
-Total function tasks: 32
-Sub-batches needed: 4 (10 + 10 + 10 + 2)
-
-Processing sub-batch 1 of 4 (10 functions)...
-  Creating ALL 10 ContextGenerator subagents SIMULTANEOUSLY:
-  
-  <subagent_task>Agent: @context-generator (backend_task_015 - authenticateUser)</subagent_task>
-  <subagent_task>Agent: @context-generator (backend_task_016 - validateToken)</subagent_task>
-  <subagent_task>Agent: @context-generator (backend_task_017 - refreshToken)</subagent_task>
-  ... [ALL 10 subagent blocks in ONE response]
-  
-  ✓ Sub-batch 1 complete: 10/10 contexts generated
-
-Processing sub-batch 2 of 4 (10 functions)...
-  Creating 10 ContextGenerator subagents in parallel:
-  - backend_task_020 (createSession)
-  - backend_task_021 (updateLastLogin)
-  ... (10 total)
-  ✓ Sub-batch 2 complete: 10/10 contexts generated
-
-Processing sub-batch 3 of 4 (10 functions)...
-  ✓ Sub-batch 3 complete: 10/10 contexts generated
-
-Processing sub-batch 4 of 4 (2 functions)...
-  Creating 2 ContextGenerator subagents in parallel:
-  - backend_task_040 (logLoginAttempt)
-  - backend_task_041 (cleanupExpiredSessions)
-  ✓ Sub-batch 4 complete: 2/2 contexts generated
-
-✓ ALL batches complete: 32/32 contexts generated (100% coverage)
-```
-
-**FORBIDDEN - PARTIAL BATCH PROCESSING**:
-- ❌ "Processing first batch, skipping remaining" 
-- ❌ "Starting with batch 1, will continue later"
-- ❌ "Key functions in batch 1, others optional"
-- ❌ "Processing function 1... Processing function 2..." (串行执行)
-- ❌ "Let me continue with function X" (one-by-one 处理)
-- ✅ REQUIRED: "Creating ALL 10 subagents simultaneously in one response"
-- ✅ REQUIRED: "ALL X batches processed" / "100% coverage across all batches"
-
-**Verification Required**:
-1. Count function tasks: `function_count = tasks where level==3 AND type=="function"`
-2. Calculate sub-batches: `num_batches = ceil(function_count / 10)`
+### 6. Update Checkpoint
 3. For each sub-batch (1 to num_batches):
    - Output: "Processing sub-batch {i} of {num_batches} ({size} functions)..."
    - Create subagents: up to 10 per sub-batch

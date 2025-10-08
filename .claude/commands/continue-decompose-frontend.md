@@ -54,7 +54,8 @@ For each task in batch:
 
 #### If task.type == "component":
 - Mark status as "ready"
-- **Immediately invoke ContextGenerator** (see step 5)
+- **Immediately invoke ContextGenerator** (see step 6)
+- Note: Only Level 3 components get context files; Level 2/1 integration tasks do not
 
 #### If task.type == "module" (Level 1):
 - **Decompose to Page level (Level 2)**
@@ -305,6 +306,12 @@ Example merged result:
 ### 6. Invoke Context Generator for Component Tasks (Parallel)
 
 **After step 5 integration completes**, invoke context generators.
+
+**CRITICAL - ONLY FOR LEVEL 3 IMPLEMENTATION TASKS**:
+- Context generation is ONLY for Level 3 implementation tasks (`type == "component"`)
+- DO NOT generate contexts for Level 2 page integration tasks (they dynamically fetch child states)
+- DO NOT generate contexts for Level 1 module integration tasks (they dynamically fetch child states)
+- Integration tasks will get their "context" at execution time from child task states
 
 **Trigger condition**: For each task where `level == 3` AND `type == "component"`
 
