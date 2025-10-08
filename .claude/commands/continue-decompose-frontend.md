@@ -15,20 +15,31 @@ Continue decomposing frontend tasks to component level (React/Vue/Angular compon
 
 ### 1. Load State and Get Next Batch
 Read state and task registry using tree structure.
-Get next 5-10 pending tasks using `get_tasks_by_status("pending")`.
+
+**CRITICAL - LAYER-BY-LAYER DECOMPOSITION**:
+- **Phase 1**: Decompose ALL Level 1 tasks to Level 2 first
+- **Phase 2**: Only after Phase 1 is complete, decompose ALL Level 2 tasks to Level 3
+- DO NOT mix Level 1 and Level 2 decomposition in the same batch
 
 **Python example**:
 ```python
 task_mgr = TaskRegistryManager()
 
-# Get pending tasks that need decomposition
+# Get all pending tasks
 pending_tasks = task_mgr.get_tasks_by_status("pending", category="frontend")
 
-# Filter for tasks needing decomposition (Level 1 or 2)
-tasks_to_decompose = [t for t in pending_tasks if t["level"] in [1, 2]]
+# Phase 1: Get Level 1 tasks (modules) that need decomposition
+level1_tasks = [t for t in pending_tasks if t["level"] == 1]
 
-# Get next batch (5-10 tasks)
-batch = tasks_to_decompose[:10]
+if level1_tasks:
+    # Still in Phase 1: decompose modules to pages
+    batch = level1_tasks[:10]  # Process up to 10 modules
+    current_phase = "Level 1 → Level 2 (Module → Page)"
+else:
+    # Phase 1 complete, move to Phase 2: decompose pages to components
+    level2_tasks = [t for t in pending_tasks if t["level"] == 2]
+    batch = level2_tasks[:10]  # Process up to 10 pages
+    current_phase = "Level 2 → Level 3 (Page → Component)"
 ```
 
 ### 2. Process Each Frontend Task
@@ -474,6 +485,7 @@ If all tasks are at component level (type == "component"):
 
 ### 9. Output Summary
 ```
+=== Decomposition Phase: {current_phase} ===
 Resuming from checkpoint: frontend_task_XXX
 
 Processing frontend batch (5-10 tasks)...

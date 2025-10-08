@@ -15,20 +15,31 @@ Continue decomposing backend tasks to function/endpoint level.
 
 ### 1. Load State and Get Next Batch
 Read state and task registry using tree structure.
-Get next 5-10 pending backend tasks using `get_tasks_by_status("pending")`.
+
+**CRITICAL - LAYER-BY-LAYER DECOMPOSITION**:
+- **Phase 1**: Decompose ALL Level 1 tasks to Level 2 first
+- **Phase 2**: Only after Phase 1 is complete, decompose ALL Level 2 tasks to Level 3
+- DO NOT mix Level 1 and Level 2 decomposition in the same batch
 
 **Python example**:
 ```python
 task_mgr = TaskRegistryManager()
 
-# Get pending backend tasks
+# Get all pending backend tasks
 pending_tasks = task_mgr.get_tasks_by_status("pending", category="backend")
 
-# Filter for tasks needing decomposition (Level 1 or 2)
-tasks_to_decompose = [t for t in pending_tasks if t["level"] in [1, 2]]
+# Phase 1: Get Level 1 tasks (modules) that need decomposition
+level1_tasks = [t for t in pending_tasks if t["level"] == 1]
 
-# Get next batch (5-10 tasks)
-batch = tasks_to_decompose[:10]
+if level1_tasks:
+    # Still in Phase 1: decompose modules to services
+    batch = level1_tasks[:10]  # Process up to 10 modules
+    current_phase = "Level 1 → Level 2 (Module → Service)"
+else:
+    # Phase 1 complete, move to Phase 2: decompose services to functions
+    level2_tasks = [t for t in pending_tasks if t["level"] == 2]
+    batch = level2_tasks[:10]  # Process up to 10 services
+    current_phase = "Level 2 → Level 3 (Service → Function)"
 ```
 
 ### 2. Process Each Backend Task
@@ -516,6 +527,7 @@ Save progress after each batch:
 
 ### 8. Output Summary
 ```
+=== Decomposition Phase: {current_phase} ===
 Processing backend batch...
 
 === Decomposition Phase (Parallel) ===
